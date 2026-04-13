@@ -28,8 +28,9 @@ Identity store central do Mordomo. Guarda perfis de pessoas, permissões, contat
 - ✅ **Perfis** — nome, apelidos reconhecidos pelo Mordomo, voz (referência ao `mordomo-speaker-verification`), rosto (referência ao `seguranca-face-recognition`)
 - ✅ **Permissões** — o que cada pessoa pode pedir ao Mordomo (ex: só o dono pode autorizar PIX alto)
 - ✅ **Contatos** — livro de endereços com chaves PIX, telefone, email
-- ✅ **Credenciais criptografadas** — API keys, tokens de serviços externos (ex: Asaas, corretoras)
 - ✅ **Lookup por nome** — resolve "João" → `{ pix_key: "+5511..." }`
+
+> **Credenciais de sistema** (API keys, tokens de serviços externos) pertencem ao módulo que as usa — gerenciadas via variáveis de ambiente Docker, não aqui.
 
 ---
 
@@ -48,7 +49,7 @@ Identity store central do Mordomo. Guarda perfis de pessoas, permissões, contat
 │  │ (perfis) │ │(pix keys) │ │
 │  └──────────┘ └───────────┘ │
 │  ┌──────────────────────────┐│
-│  │ credenciais (AES-256)    ││
+│  │ permissoes               ││
 │  └──────────────────────────┘│
 └─────────────────────────────┘
 ```
@@ -69,11 +70,6 @@ Payload: { "name": "João" }
 Topic: "mordomo.people.permissions.get"
 Payload: { "person_id": "uuid" }
 → Response: { "can_authorize_pix": true, "max_pix_amount": 500.00, "is_owner": false }
-
-// Busca credencial criptografada (só para módulos autorizados)
-Topic: "mordomo.people.credential.get"
-Payload: { "key": "asaas_api_key", "requester": "mordomo-financas-pix" }
-→ Response: { "value": "decrypted_secret" }
 
 // Cria ou atualiza pessoa
 Topic: "mordomo.people.upsert"
@@ -124,15 +120,6 @@ CREATE TABLE permissoes (
   value TEXT NOT NULL,
   PRIMARY KEY (person_id, key)
 );
-
--- Credenciais externas (criptografadas)
-CREATE TABLE credenciais (
-  key TEXT PRIMARY KEY,              -- 'asaas_api_key', 'b3_token'
-  value_encrypted BYTEA NOT NULL,   -- AES-256-GCM
-  nonce BYTEA NOT NULL,
-  owner_module TEXT NOT NULL,        -- módulo que usa essa credencial
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
 ```
 
 ---
@@ -145,7 +132,7 @@ mordomo-people:
   environment:
     - NATS_URL=nats://mordomo-nats:4222
     - DATABASE_URL=postgresql://postgres:password@mordomo-postgres:5432/mordomo
-    - PEOPLE_MASTER_KEY=${PEOPLE_MASTER_KEY}  # nunca hardcode
+    - PEOPLE_MASTER_KEY=${PEOPLE_MASTER_KEY}  # chave mestre para dados sensíveis em repouso
   deploy:
     resources:
       limits:
@@ -160,7 +147,7 @@ mordomo-people:
 | Módulo | Como usa |
 |---|---|
 | `mordomo-brain` | Resolve nomes em comandos (`"Faz PIX pro João"`) |
-| `mordomo-financas-pix` | Busca chave PIX do destinatário + credencial Asaas |
+| `mordomo-financas-pix` | Busca chave PIX do destinatário pelo nome |
 | `mordomo-speaker-verification` | Verifica se voz pertence a pessoa com permissão |
 | `seguranca-face-recognition` | Verifica identidade por rosto |
 | `mordomo-action-dispatcher` | Checa permissões antes de executar ação |
