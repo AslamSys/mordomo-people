@@ -1,0 +1,21 @@
+services:
+  mordomo-people:
+    image: renaneunao/mordomo-people:latest
+    container_name: mordomo-people
+    restart: unless-stopped
+    environment:
+      NATS_URL:            ${NATS_URL:-nats://nats:4222}
+      DATABASE_URL:        ${DATABASE_URL:?DATABASE_URL is required}
+      REDIS_URL:           ${REDIS_URL:-redis://redis:6379/0}
+      PEOPLE_MASTER_KEY:   ${PEOPLE_MASTER_KEY:?PEOPLE_MASTER_KEY is required}
+      RESOLVE_CACHE_TTL:   ${RESOLVE_CACHE_TTL:-300}
+      PERMISSIONS_CACHE_TTL: ${PERMISSIONS_CACHE_TTL:-60}
+    networks:
+      - mordomo-net
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+networks:
+  mordomo-net:
+    external: true

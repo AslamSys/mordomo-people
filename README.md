@@ -151,3 +151,49 @@ mordomo-people:
 | `mordomo-speaker-verification` | Verifica se voz pertence a pessoa com permissão |
 | `seguranca-face-recognition` | Verifica identidade por rosto |
 | `mordomo-action-dispatcher` | Checa permissões antes de executar ação |
+
+---
+
+## 🏗️ Estrutura do Repositório
+
+```
+mordomo-people/
+├── src/
+│   ├── main.py        # Entry point — asyncio loop, NATS connect, signal handlers
+│   ├── config.py      # Configuração via variáveis de ambiente
+│   ├── crypto.py      # AES-256-GCM encrypt/decrypt para dados sensíveis
+│   ├── db.py          # asyncpg — queries: resolve_person, get_permissions, upsert_person
+│   ├── cache.py       # Redis (db 0) — cache de lookups e permissões com TTL
+│   └── handlers.py    # NATS handlers: handle_resolve, handle_permissions_get, handle_upsert
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+├── .env.example
+└── .gitignore
+```
+
+## ⚙️ Variáveis de Ambiente
+
+| Variável | Obrigatória | Descrição |
+|---|---|---|
+| `NATS_URL` | — | Default: `nats://nats:4222` |
+| `DATABASE_URL` | ✅ | URL do Postgres da infra |
+| `REDIS_URL` | — | Default: `redis://redis:6379/0` (db 0) |
+| `PEOPLE_MASTER_KEY` | ✅ | 32 bytes hex (64 chars) para AES-256-GCM |
+| `RESOLVE_CACHE_TTL` | — | TTL cache de resolve em segundos (default: 300) |
+| `PERMISSIONS_CACHE_TTL` | — | TTL cache de permissões em segundos (default: 60) |
+
+Gere a master key com:
+```bash
+python -c "import os, binascii; print(binascii.hexlify(os.urandom(32)).decode())"
+```
+
+## 🚀 Como rodar
+
+```bash
+# Pré-requisitos: infra rodando (nats, postgres, redis)
+cp .env.example .env
+# Preencha DATABASE_URL e PEOPLE_MASTER_KEY no .env
+
+docker compose up -d
+```
