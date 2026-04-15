@@ -150,7 +150,6 @@ mordomo-people:
 | `mordomo-financas-pix` | Busca chave PIX do destinatário pelo nome |
 | `mordomo-speaker-verification` | Verifica se voz pertence a pessoa com permissão |
 | `seguranca-face-recognition` | Verifica identidade por rosto |
-| `mordomo-action-dispatcher` | Checa permissões antes de executar ação |
 
 ---
 
