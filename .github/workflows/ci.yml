@@ -1,0 +1,13 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  docker:
+    uses: AslamSys/.github/.github/workflows/docker-build-push.yml@main
+    with:
+      image_name: mordomo-people
+    secrets: inherit
