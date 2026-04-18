@@ -9,3 +9,4 @@ cryptography
 passlib[bcrypt]
 itsdangerous
 python-multipart
+requests
