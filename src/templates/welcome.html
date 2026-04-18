@@ -4,202 +4,288 @@
 
 {% block extra_css %}
 .hero {
-    min-height: 100vh;
+    min-height: 80vh;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding-top: 140px;
+    padding-top: 100px;
 }
 
 .hero h1 {
-    font-size: 7rem;
+    font-size: 5.5rem;
     font-weight: 800;
     margin-bottom: 20px;
-    letter-spacing: -6px;
-    line-height: 0.8;
+    letter-spacing: -4px;
+    line-height: 0.9;
 }
 
 .hero p {
-    font-size: 1.6rem;
+    font-size: 1.4rem;
     color: var(--text-dim);
-    max-width: 900px;
+    max-width: 800px;
     margin-bottom: 50px;
 }
 
-.tech-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 30px;
+/* Pipeline Interactive UI */
+.pipeline-section {
     padding: 100px 0;
 }
 
-.tech-card {
-    padding: 45px;
-    border-top: 1px solid var(--border);
-    transition: 0.5s cubic-bezier(0.2, 1, 0.3, 1);
-}
-.tech-card:hover { background: rgba(255,255,255,0.02); transform: translateY(-10px); border-top-color: var(--primary); }
-
-.tech-card h3 { font-size: 1.5rem; margin-bottom: 10px; color: white; }
-.tech-card .detail { font-size: 0.8rem; color: var(--primary-light); font-weight: 800; text-transform: uppercase; margin-bottom: 20px; display: block; }
-.tech-card p { color: var(--text-dim); font-size: 0.9rem; line-height: 1.6; }
-
-/* Deep Dive Section */
-.deep-dive {
-    background: rgba(139, 92, 246, 0.03);
-    border-radius: 40px;
-    padding: 80px 60px;
-    margin-bottom: 150px;
-    border: 1px solid var(--border);
-}
-
-.pipeline-viz {
+.pipeline-container {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin: 60px 0;
+    flex-direction: column;
     gap: 20px;
 }
 
-.viz-step {
-    flex: 1;
-    padding: 25px;
-    background: rgba(0,0,0,0.3);
+.pipeline-module {
+    background: rgba(255, 255, 255, 0.02);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    text-align: center;
-    font-size: 0.8rem;
+    border-radius: 20px;
+    overflow: hidden;
+    transition: 0.4s cubic-bezier(0.2, 1, 0.3, 1);
 }
 
-.viz-arrow { color: var(--border); font-size: 1.5rem; }
+.module-header {
+    padding: 30px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.01);
+}
+
+.module-header:hover { background: rgba(139, 92, 246, 0.05); }
+
+.module-title { display: flex; align-items: center; gap: 20px; }
+.module-icon { 
+    width: 50px; height: 50px; 
+    background: var(--surface); 
+    border: 1px solid var(--primary); 
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem;
+    color: var(--primary-light);
+    box-shadow: 0 0 15px var(--primary-glow);
+}
+
+.module-header h3 { font-size: 1.4rem; font-weight: 600; }
+.module-header .step-count { font-size: 0.7rem; color: var(--text-dim); letter-spacing: 2px; text-transform: uppercase; }
+
+.module-content {
+    max-height: 0;
+    opacity: 0;
+    padding: 0 40px;
+    transition: all 0.5s ease;
+}
+
+.pipeline-module.open .module-content {
+    max-height: 800px;
+    opacity: 1;
+    padding: 40px;
+    border-top: 1px solid var(--border);
+}
+
+.flow-step-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    position: relative;
+}
+
+.flow-step {
+    padding: 20px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    position: relative;
+    z-index: 1;
+}
+
+.flow-step::after {
+    content: '→';
+    position: absolute;
+    right: -15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--border);
+    font-size: 1rem;
+}
+.flow-step:last-child::after { content: ''; }
+
+.flow-step .step-title { display: block; font-weight: 800; font-size: 0.75rem; color: var(--primary-light); margin-bottom: 5px; text-transform: uppercase; }
+.flow-step p { font-size: 0.85rem; color: var(--text-dim); line-height: 1.4; }
+
+.action-badge {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid #10b981;
+    color: #10b981;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    display: inline-block;
+    margin-top: 10px;
+}
 
 .section-label { font-size: 0.75rem; letter-spacing: 5px; color: var(--primary-light); margin-bottom: 20px; font-weight: 800; }
 
-.infra-specs {
-    display: flex;
-    gap: 40px;
-    justify-content: center;
-    margin-top: 40px;
-}
-
-.spec-item { text-align: center; }
-.spec-item .val { display: block; font-size: 1.5rem; font-weight: 800; }
-.spec-item .lab { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; }
-
 @media (max-width: 800px) {
-    .pipeline-viz { flex-direction: column; }
-    .viz-arrow { transform: rotate(90deg); }
+    .hero h1 { font-size: 3.5rem; letter-spacing: -2px; }
+    .flow-step-list { grid-template-columns: 1fr; }
+    .flow-step::after { display: none; }
 }
 {% endblock %}
 
 {% block content %}
 <div class="container">
     
-    <!-- Hero Principal -->
+    <!-- Hero -->
     <section class="hero">
-        <div class="section-label">IDENTIDADE • ACÚSTICA • INFRAESTRUTURA</div>
-        <h1 class="gradient-text">Arquitetura de Consciência.</h1>
-        <p>O Aslam não é apenas código. É uma orquestra de microsserviços distribuídos, biometria de voz em tempo real e segurança de nível bancário unificados em um único ecossistema inteligente.</p>
+        <div class="section-label">CICLO DE CONSCIÊNCIA ASLAM</div>
+        <h1 class="gradient-text">Onde o bits <br>encontram a intuição.</h1>
+        <p>Uma infraestrutura distribuída que transforma áudio bruto em decisões estratégicas e ações autônomas em tempo real.</p>
         <div style="display: flex; gap: 20px;">
-            <a href="#setup" class="btn btn-primary">Ativar Núcleo Mestre</a>
-            <a href="#infra" class="btn btn-outline">Deep Dive Técnico</a>
+            <a href="#setup" class="btn btn-primary">Inicializar HQ</a>
+            <a href="#pipelines" class="btn btn-outline">Ver Fluxos de Trabalho</a>
         </div>
     </section>
 
-    <!-- Intelligence Pillars -->
-    <section class="tech-grid">
-        <div class="tech-card glass-card reveal">
-            <span class="detail">Frontal Lobe • Brain</span>
-            <h3>Cognitive RAG & Bifrost</h3>
-            <p>O cérebro do Aslam opera com camadas de classificação (Bifrost). Ele separa intenções triviais de pesquisas profundas, utilizando RAG para consultar sua base de conhecimento privada com precisão cirúrgica.</p>
-        </div>
-        
-        <div class="tech-card glass-card reveal">
-            <span class="detail">Nervous System • Orchestrator</span>
-            <h3>Strategic Execution</h3>
-            <p>A orquestração não é linear. O Mordomo Orchestrator decide em tempo real se deve disparar um robô RPA, consultar uma API de IoT ou apenas responder via áudio, baseando-se no contexto e prioridade.</p>
-        </div>
+    <!-- Pipelines Interativas -->
+    <section id="pipelines" class="pipeline-section reveal">
+        <div class="section-label">FLOWS • ARQUITETURA PROATIVA</div>
+        <h2 style="font-size: 2.5rem; margin-bottom: 50px;">Como o Aslam Processa o Mundo</h2>
 
-        <div class="tech-card glass-card reveal">
-            <span class="detail">Edge Satellites • IoT</span>
-            <h3>Distributed Audition</h3>
-            <p>Através de satélites ESP32 e arquitetura Node-Centric, o Aslam tem ouvidos em todos os cômodos. O processamento pesado fica no Orange Pi 5, mas a percepção é onipresente.</p>
+        <div class="pipeline-container">
+            
+            <!-- Módulo 1: Áudio -->
+            <div class="pipeline-module" onclick="this.classList.toggle('open')">
+                <div class="module-header">
+                    <div class="module-title">
+                        <div class="module-icon">🎙️</div>
+                        <div>
+                            <h3>Pipeline de Percepção Acústica</h3>
+                            <span class="step-count">5 Estágios Críticos</span>
+                        </div>
+                    </div>
+                    <div class="viz-arrow">↓</div>
+                </div>
+                <div class="module-content">
+                    <div class="flow-step-list">
+                        <div class="flow-step">
+                            <span class="step-title">01 Captura</span>
+                            <p>O áudio bruto chega via NATS por satélites IoT locais.</p>
+                        </div>
+                        <div class="flow-step">
+                            <span class="step-title">02 Separação</span>
+                            <p>Separação de canais (Diarization) para isolar quem está falando.</p>
+                        </div>
+                        <div class="flow-step">
+                            <span class="step-title">03 Biometria</span>
+                            <p>O perfil vocal é comparado com as identidades registradas.</p>
+                        </div>
+                        <div class="flow-step">
+                            <span class="step-title">04 Permissão</span>
+                            <p>Consulta o Vault para ver se o usuário tem autorização de comando.</p>
+                        </div>
+                        <div class="flow-step">
+                            <span class="step-title">05 Intenção</span>
+                            <p>Transcrição final enviada ao Cérebro com contexto de identidade.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Módulo 2: Cérebro -->
+            <div class="pipeline-module" onclick="this.classList.toggle('open')">
+                <div class="module-header">
+                    <div class="module-title">
+                        <div class="module-icon">🧠</div>
+                        <div>
+                            <h3>Núcleo Strategist & RAG</h3>
+                            <span class="step-count">Processamento Cognitivo</span>
+                        </div>
+                    </div>
+                    <div class="viz-arrow">↓</div>
+                </div>
+                <div class="module-content">
+                    <div class="flow-step-list">
+                        <div class="flow-step">
+                            <span class="step-title">01 Classificação</span>
+                            <p>Bifrost decide: é uma dúvida, um comando ou uma tarefa complexa?</p>
+                        </div>
+                        <div class="flow-step">
+                            <span class="step-title">02 RAG Search</span>
+                            <p>Consulta memórias de longo prazo e documentos técnicos privados.</p>
+                        </div>
+                        <div class="flow-step">
+                            <span class="step-title">03 Roteamento</span>
+                            <p>O Brain gera a carga útil (payload) para o executor correto.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Módulo 3: Ação -->
+            <div class="pipeline-module" onclick="this.classList.toggle('open')">
+                <div class="module-header">
+                    <div class="module-title">
+                        <div class="module-icon">⚡</div>
+                        <div>
+                            <h3>Braços de Execução (Dispatch)</h3>
+                            <span class="step-count">O Impacto no Mundo Real</span>
+                        </div>
+                    </div>
+                    <div class="viz-arrow">↓</div>
+                </div>
+                <div class="module-content">
+                    <div class="flow-step-list">
+                        <div class="flow-step">
+                            <span class="step-title">Web Agent</span>
+                            <p>O OpenClaw abre um navegador, preenche formulários ou faz scraping.</p>
+                            <span class="action-badge">OpenClaw RPA</span>
+                        </div>
+                        <div class="flow-step">
+                            <span class="step-title">IoT Engine</span>
+                            <p>Comandos via MQTT para luzes, ar-condicionado ou automação física.</p>
+                            <span class="action-badge">Hardware Control</span>
+                        </div>
+                        <div class="flow-step">
+                            <span class="step-title">Digital Finance</span>
+                            <p>Orquestração de pagamentos, geração de PIX ou conferência financeira.</p>
+                            <span class="action-badge">Transactional</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </section>
 
-    <!-- Infrastructure Visualization -->
-    <section id="infra" class="deep-dive reveal">
-        <div class="section-label">BACKBONE INDUSTRIAL</div>
-        <h2>Infraestrutura de Baixa Latência</h2>
-        <p style="color: var(--text-dim); margin-top: 20px;">Utilizamos <strong>NATS JetStream</strong> para garantir que nenhuma mensagem seja perdida, mesmo em quedas de rede, unido ao **ZeroMQ** para o streaming de áudio bruto.</p>
-
-        <div class="pipeline-viz">
-            <div class="viz-step"><b>ORANGE PI 5</b><br>Core Processor</div>
-            <div class="viz-arrow">← NATS →</div>
-            <div class="viz-step" style="border-color: var(--primary);"><b>JETSTREAM</b><br>Persistence Layer</div>
-            <div class="viz-arrow">← ZMQ →</div>
-            <div class="viz-step"><b>ESP32 NODES</b><br>Edge Percept</div>
-        </div>
-    </section>
-
-        <div class="infra-specs">
-            <div class="spec-item"><span class="val">8-Core</span><span class="lab">ARM64 Architecture</span></div>
-            <div class="spec-item"><span class="val">ZeroMQ/NATS</span><span class="lab">Hybrid Bus</span></div>
-            <div class="spec-item"><span class="val">AES-GCM</span><span class="lab">Vault Security</span></div>
-        </div>
-    </section>
-
-    <!-- OpenClaw Spotlight -->
-    <section class="reveal" style="text-align: center; margin-bottom: 150px;">
-        <h2 style="font-size: 3rem; margin-bottom: 30px;">O Explorador Autônomo</h2>
-        <p style="color: var(--text-dim); max-width: 750px; margin: 0 auto 40px;">
-            Através do <strong>OpenClaw Agent</strong>, o ecossistema Aslam navega nativamente na web. Ele não apenas lê dados; ele executa ações, preenche formulários e realiza pesquisas complexas em navegadores reais, agindo como seus olhos no mundo digital.
-        </p>
-        <div class="glass-card" style="padding: 30px; display: inline-block;">
-            <code style="color: var(--primary-light);">Decision Engine: Gemini 2.0 Flash / GPT-4o-mini</code>
-        </div>
-    </section>
-
-    <!-- Final Setup / Login -->
-    <section id="setup" class="setup-wizard glass-card reveal" style="max-width: 600px; margin: 0 auto 100px; padding: 60px;">
-        
+    <!-- Setup Wizard -->
+    <section id="setup" class="setup-wizard glass-card reveal" style="max-width: 600px; margin: 100px auto; padding: 60px;">
         {% if login_mode %}
             <h2 style="text-align: center; margin-bottom: 40px;">Acesso Restrito</h2>
-            <p style="text-align: center; color: var(--text-dim); margin-bottom: 30px;">Identidade mestre detectada. Por favor, autentique-se para acessar o HQ.</p>
             <form action="/login" method="POST">
-                <label class="input-label">Nome do Administrador</label>
+                <label class="input-label">Identidade Administrador</label>
                 <input type="text" name="name" class="input-field" placeholder="Ex: Renan" required>
-                
                 <label class="input-label">Senha</label>
                 <input type="password" name="password" class="input-field" placeholder="••••••••" required>
-
-                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 20px; font-size: 1.1rem; margin-top: 10px;">
-                    ENTRAR NO SISTEMA
-                </button>
+                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 20px;">ENTRAR</button>
             </form>
-            <div style="text-align: center; margin-top: 20px;">
-                <a href="/welcome" style="font-size: 0.8rem; color: var(--primary-light);">Ver Manifesto do Sistema</a>
-            </div>
+            <div style="text-align: center; margin-top: 20px;"><a href="/welcome" style="font-size: 0.8rem; color: var(--primary-light);">Voltar ao Início</a></div>
         {% else %}
-            <h2 style="text-align: center; margin-bottom: 40px;">Inicializar Administrador</h2>
+            <h2 style="text-align: center; margin-bottom: 40px;">Provisionar Mestre</h2>
             <form action="/add" method="POST">
                 <input type="hidden" name="is_owner" value="true">
                 <label class="input-label">Nome Completo</label>
-                <input type="text" name="name" class="input-field" placeholder="Identidade Mestra" required>
-                
-                <label class="input-label">Especialidade / Cargo</label>
-                <input type="text" name="description" class="input-field" placeholder="Ex: Lead Engineer">
-
-                <label class="input-label">Master Password (Vault Access)</label>
+                <input type="text" name="name" class="input-field" placeholder="Ex: Renan" required>
+                <label class="input-label">Cargo / Especialidade</label>
+                <input type="text" name="description" class="input-field" placeholder="Ex: CTO">
+                <label class="input-label">Semente de Acesso (Senha)</label>
                 <input type="password" name="password" class="input-field" placeholder="••••••••" required>
-
-                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 20px; font-size: 1.1rem; margin-top: 10px;">
-                    CONFIRMAR E ATIVAR
-                </button>
+                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 20px;">CONFIRMAR CADASTRO</button>
             </form>
-            <div style="text-align: center; margin-top: 20px;">
-                <a href="/?login_mode=true" style="font-size: 0.8rem; color: var(--text-dim);">Já possui cadastro? Entrar</a>
-            </div>
+            <div style="text-align: center; margin-top: 20px;"><a href="/?login_mode=true" style="font-size: 0.8rem; color: var(--text-dim);">Já possui cadastro? Entrar</a></div>
         {% endif %}
     </section>
 
