@@ -37,19 +37,53 @@ def get_current_user(request: Request):
         return None
     return user
 
+async def get_system_status():
+    """Health probes for ecosystem modules."""
+    status = {
+        "llm_gateway": "offline",
+        "nats": "offline",
+        "redis": "offline",
+        "qdrant": "offline"
+    }
+    
+    # Check LLM Gateway (LiteLLM)
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get("http://llm-gateway:3000/health/readiness", timeout=1.0)
+            if resp.status_code == 200: status["llm_gateway"] = "online"
+    except: pass
+
+    # Check NATS
+    try:
+        from src import nats_client # Assuming you have a nats_client wrapper
+        if nats_client.is_connected: status["nats"] = "online"
+    except: pass
+
+    # Check Redis
+    try:
+        from src.cache import redis_client
+        if await redis_client.ping(): status["redis"] = "online"
+    except: pass
+
+    # Check Qdrant
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get("http://qdrant:6333", timeout=1.0)
+            if resp.status_code == 200: status["qdrant"] = "online"
+    except: pass
+
+    return status
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, user: dict = Depends(get_current_user)):
     """The hub: Landing/Onboarding or Admin Dashboard."""
     try:
         admin_count = await get_admin_count()
         
-        # Scenario 1: No admins exist -> Force Onboarding (Welcome Page)
         if admin_count == 0:
             return templates.TemplateResponse(request=request, name="welcome.html", context={})
         
-        # Scenario 2: Admin exists but not logged in -> Show Welcome/Login
         if not user:
-            # We can pass an 'auth_required' flag if we want to show the login form instead of onboarding
             return templates.TemplateResponse(request=request, name="welcome.html", context={"login_mode": True})
         
         # Scenario 3: Logged in -> Show Dashboard
@@ -57,10 +91,17 @@ async def index(request: Request, user: dict = Depends(get_current_user)):
             rows = await conn.fetch("SELECT id, name, description, is_owner FROM people.pessoas ORDER BY name")
         residents = [dict(r) for r in rows]
         
+        system_status = await get_system_status()
+        
         return templates.TemplateResponse(
             request=request, 
             name="dashboard.html", 
-            context={"residents": residents, "admin_count": admin_count, "user": user}
+            context={
+                "residents": residents, 
+                "admin_count": admin_count, 
+                "user": user, 
+                "system": system_status
+            }
         )
     except Exception as e:
         logger.exception("Dashboard: Failed")
@@ -97,9 +138,7 @@ async def add_resident(
     description: str = Form(None),
     is_owner: bool = Form(False),
     whatsapp: str = Form(None),
-    password: str = Form(None),
-    perm_iot: str = Form(None),
-    perm_finance: str = Form(None)
+    password: str = Form(None)
 ):
     """Handle resident creation (Wizard or Dashboard)."""
     try:
@@ -122,12 +161,6 @@ async def add_resident(
                         "INSERT INTO people.contatos (person_id, type, value_enc, label) VALUES ($1, 'whatsapp', $2, 'Principal')",
                         person_id, db.encrypt(whatsapp)
                     )
-                
-                # Save permissions
-                if perm_iot:
-                    await conn.execute("INSERT INTO people.permissoes (person_id, key, value) VALUES ($1, 'access.iot', 'true')", person_id)
-                if perm_finance:
-                    await conn.execute("INSERT INTO people.permissoes (person_id, key, value) VALUES ($1, 'access.finance', 'true')", person_id)
         
         # If was onboarding, log them in automatically
         if admin_count == 0:
@@ -141,3 +174,10 @@ async def add_resident(
 @app.get("/welcome", response_class=HTMLResponse)
 async def welcome_direct(request: Request):
     return templates.TemplateResponse(request=request, name="welcome.html", context={})
+
+@app.get("/wizard", response_class=HTMLResponse)
+async def resident_wizard(request: Request, user: dict = Depends(get_current_user)):
+    """The Step-by-Step Resident Onboarding."""
+    if not user:
+        return RedirectResponse(url="/", status_code=303)
+    return templates.TemplateResponse(request=request, name="wizard.html", context={"user": user})

@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Aslam Identity Wizard{% endblock %}
+
+{% block extra_css %}
+.wizard-container {
+    max-width: 900px;
+    margin: 120px auto;
+    padding: 60px;
+    position: relative;
+    overflow: hidden;
+}
+
+.wizard-step {
+    display: none;
+    animation: slideIn 0.5s ease-out;
+}
+
+.wizard-step.active {
+    display: block;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(30px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.step-indicator {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 40px;
+}
+
+.step-dot {
+    height: 6px;
+    flex: 1;
+    background: var(--border);
+    border-radius: 10px;
+    transition: 0.3s;
+}
+
+.step-dot.active {
+    background: var(--primary);
+    box-shadow: 0 0 10px var(--primary-glow);
+}
+
+.identity-preview {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border);
+    padding: 30px;
+    border-radius: 20px;
+    margin-top: 30px;
+}
+
+.wizard-img {
+    width: 100%;
+    border-radius: 30px;
+    margin-bottom: 40px;
+    border: 1px solid var(--border);
+}
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="wizard-container glass-card reveal">
+        
+        <img src="/static/identity_wizard.png" class="wizard-img" alt="Identity Scan">
+        
+        <div class="step-indicator">
+            <div id="dot-1" class="step-dot active"></div>
+            <div id="dot-2" class="step-dot"></div>
+            <div id="dot-3" class="step-dot"></div>
+        </div>
+
+        <form id="wizard-form" action="/add" method="POST">
+            
+            <!-- Step 1: Identity -->
+            <div id="step-1" class="wizard-step active">
+                <span class="section-label">PASSO 01 • ESSÊNCIA</span>
+                <h2 style="margin-bottom: 20px;">Quem estamos integrando?</h2>
+                <p style="color: var(--text-dim); margin-bottom: 30px;">Defina o nome oficial e como o Aslam deve se referir a esta pessoa.</p>
+                
+                <label class="input-label">Nome Completo</label>
+                <input type="text" name="name" class="input-field" placeholder="Ex: Vitorya Silva" required>
+                
+                <label class="input-label">Descrição / Especialidade</label>
+                <input type="text" name="description" class="input-field" placeholder="Ex: Engenheira de Software">
+                
+                <div style="margin-top: 40px; display: flex; justify-content: flex-end;">
+                    <button type="button" class="btn btn-primary" onclick="nextStep(2)">Continuar ➔</button>
+                </div>
+            </div>
+
+            <!-- Step 2: Connectivity -->
+            <div id="step-2" class="wizard-step">
+                <span class="section-label">PASSO 02 • CONEXÃO</span>
+                <h2 style="margin-bottom: 20px;">Canais de Comunicação</h2>
+                <p style="color: var(--text-dim); margin-bottom: 30px;">Vincule um número de WhatsApp. O OpenClaw usará isso para reconhecer e responder mensagens.</p>
+                
+                <label class="input-label">Número do WhatsApp</label>
+                <input type="text" name="whatsapp" class="input-field" placeholder="+5511999999999" required>
+                
+                <div style="margin-top: 40px; display: flex; justify-content: space-between;">
+                    <button type="button" class="btn btn-outline" onclick="nextStep(1)">⬅ Voltar</button>
+                    <button type="button" class="btn btn-primary" onclick="nextStep(3)">Continuar ➔</button>
+                </div>
+            </div>
+
+            <!-- Step 3: Governance -->
+            <div id="step-3" class="wizard-step">
+                <span class="section-label">PASSO 03 • GOVERNANÇA</span>
+                <h2 style="margin-bottom: 20px;">Nível de Acesso</h2>
+                <p style="color: var(--text-dim); margin-bottom: 30px;">Defina se esta pessoa terá controle total sobre o ecossistema.</p>
+                
+                <div class="input-field" style="display: flex; align-items: center; gap: 15px; cursor: pointer;">
+                    <input type="checkbox" name="is_owner" id="is_owner" value="true" style="width: 20px; height: 20px;">
+                    <label for="is_owner" style="margin-bottom: 0; cursor: pointer;">Definir como Administrador (Owner)</label>
+                </div>
+
+                <div class="identity-preview">
+                    <p style="font-size: 0.8rem; color: var(--text-dim);">Ao finalizar, a identidade será persistida no <b>Identity Vault</b> e propagada via <b>NATS</b> para todos os módulos ativos.</p>
+                </div>
+                
+                <div style="margin-top: 40px; display: flex; justify-content: space-between;">
+                    <button type="button" class="btn btn-outline" onclick="nextStep(2)">⬅ Voltar</button>
+                    <button type="submit" class="btn btn-primary" style="background: var(--primary);">CONCLUIR INTEGRAÇÃO</button>
+                </div>
+            </div>
+
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function nextStep(step) {
+        // Hide all
+        document.querySelectorAll('.wizard-step').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.step-dot').forEach(d => d.classList.remove('active'));
+        
+        // Show target
+        document.getElementById('step-' + step).classList.add('active');
+        
+        // Update dots
+        for(let i=1; i<=step; i++) {
+            document.getElementById('dot-' + i).classList.add('active');
+        }
+    }
+</script>
+{% endblock %}
