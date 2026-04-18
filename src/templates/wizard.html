@@ -225,19 +225,67 @@
         }
     }
 
-    function startEnrollment() {
+    let mediaRecorder;
+    let audioChunks = [];
+
+    async function startEnrollment() {
         const status = document.getElementById('voice-status');
         const hiddenId = document.getElementById('voice_profile_id');
-        status.innerHTML = '<span style="color: #f59e0b">CAPTANDO FREQUÊNCIAS...</span>';
-        setTimeout(() => {
-            status.innerHTML = '<span style="color: #10b981">MAPA NEURAL GERADO ✓</span>';
-            hiddenId.value = 'voice_' + Math.random().toString(36).substr(2, 9);
-            alert("O Mordomo captou seu padrão vocal. Identidade biométrica vinculada ao núcleo.");
-        }, 3000);
+        
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+                status.innerHTML = '<span style="color: #3b82f6">ANALISANDO MAPA NEURAL...</span>';
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                
+                // Send to backend
+                const formData = new FormData();
+                formData.append('audio', audioBlob, 'enrollment.wav');
+                
+                try {
+                    const response = await fetch('/wizard/voice/enroll', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const result = await response.json();
+                    
+                    if (result.voice_id) {
+                        status.innerHTML = '<span style="color: #10b981">MAPA NEURAL GERADO ✓</span>';
+                        hiddenId.value = result.voice_id;
+                        alert("Biometria capturada com sucesso! O Aslam agora conhece sua frequência vocal.");
+                    } else {
+                        throw new Error("Falha no processamento");
+                    }
+                } catch (err) {
+                    status.innerHTML = '<span style="color: #ef4444">ERRO NA CALIBRAÇÃO</span>';
+                    alert("Erro ao enviar áudio: " + err.message);
+                }
+            };
+
+            // Start recording
+            mediaRecorder.start();
+            status.innerHTML = '<span style="color: #f59e0b">● GRAVANDO... FALE "ASLAM, ME IDENTIFIQUE"</span>';
+            
+            // Record for 3 seconds
+            setTimeout(() => {
+                mediaRecorder.stop();
+                stream.getTracks().forEach(track => track.stop());
+            }, 3000);
+
+        } catch (err) {
+            alert("Erro ao acessar microfone: " + err.message);
+            status.innerHTML = '<span style="color: #ef4444">MICROFONE BLOQUEADO</span>';
+        }
     }
 
     async function submitBoth() {
-        // 1. Submit Vault Keys via AJAX
         const vaultForm = document.getElementById('vault-form');
         const formData = new FormData(vaultForm);
         
@@ -246,7 +294,6 @@
                 method: 'POST',
                 body: formData
             });
-            // 2. Submit Main Wizard form normally
             document.getElementById('wizard-form').submit();
         } catch (e) {
             console.error("Vault save failed", e);

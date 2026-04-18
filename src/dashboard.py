@@ -1,5 +1,5 @@
-from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, Response
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, Response, UploadFile, File
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -307,3 +307,20 @@ async def resident_wizard(request: Request, target: str = "new", user: dict = De
         name="wizard.html", 
         context={"user": full_user, "target": target, "vault": vault_health}
     )
+@app.post("/wizard/voice/enroll")
+async def voice_enroll(
+    request: Request,
+    audio: UploadFile = File(...),
+    user: dict = Depends(get_current_user)
+):
+    if not user:
+        return JSONResponse(content={"error": "unauthorized"}, status_code=401)
+    
+    # In the future, this will publish to NATS for the audio-pipeline (pyannote/deepgram)
+    # For now, we simulate the ID generation but we could save the file for debugging
+    logger.info(f"Received voice enrollment from {user['name']} (Size: {audio.size} bytes)")
+    
+    # Simulate a voice print ID
+    voice_id = f"voice_profile_{user['id'][:8]}"
+    
+    return {"voice_id": voice_id}
