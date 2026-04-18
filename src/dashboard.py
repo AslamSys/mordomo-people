@@ -37,6 +37,31 @@ def get_current_user(request: Request):
         return None
     return user
 
+from src.config import VAULT_URL, VAULT_TOKEN
+
+async def get_vault_health():
+    """Check if essential keys exist in the Vault."""
+    essential_keys = ["OPENAI_API_KEY", "DEEPGRAM_API_KEY", "GOOGLE_API_KEY"]
+    health = {key: "missing" for key in essential_keys}
+    
+    if not VAULT_TOKEN:
+        return health # Cannot check without token
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{VAULT_URL}/v1/secret/data/mordomo/core/keys",
+                headers={"X-Vault-Token": VAULT_TOKEN},
+                timeout=2.0
+            )
+            if resp.status_code == 200:
+                data = resp.json().get("data", {}).get("data", {})
+                for key in essential_keys:
+                    if data.get(key):
+                        health[key] = "ready"
+    except: pass
+    return health
+
 async def get_system_status(request: Request):
     """Health probes grouped by ecosystem."""
     status = {
@@ -44,7 +69,8 @@ async def get_system_status(request: Request):
             "nats": "offline",
             "redis": "offline",
             "postgres": "offline",
-            "qdrant": "offline"
+            "qdrant": "offline",
+            "vault": "offline"
         },
         "brain": {
             "bifrost": "offline",
@@ -79,6 +105,11 @@ async def get_system_status(request: Request):
             if (await client.get("http://qdrant:6333", timeout=1.0)).status_code == 200:
                 status["infra"]["qdrant"] = "online"
     except: pass
+    try:
+        async with httpx.AsyncClient() as client:
+            if (await client.get(f"{VAULT_URL}/v1/sys/health", timeout=1.0)).status_code == 200:
+                status["infra"]["vault"] = "online"
+    except: pass
 
     # ── Brain ────────────────────────────────
     try:
@@ -86,12 +117,9 @@ async def get_system_status(request: Request):
             if (await client.get("http://llm-gateway:8080/", timeout=1.0)).status_code == 200:
                 status["brain"]["bifrost"] = "online"
     except: pass
-    # Orchestrator is purely NATS-based. Check if it's subscribed to its core subject
-    # This is a simplification; a heartbeat system would be better.
     status["brain"]["orchestrator"] = "online" if status["infra"]["nats"] == "online" else "offline"
 
-    # ── Audio/IoT/Finance (Simulated/Bus Status) ────
-    # For now, we reflect the BUS status until specific heartbeats are implemented
+    # ── Audio/IoT/Finance ────────────────────
     bus_ok = status["infra"]["nats"] == "online"
     status["audio"]["capture"] = "online" if bus_ok else "offline"
     status["audio"]["pipeline"] = "online" if bus_ok else "offline"
@@ -99,6 +127,7 @@ async def get_system_status(request: Request):
     status["finance"]["finances"] = "online" if bus_ok else "offline"
 
     return status
+
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, user: dict = Depends(get_current_user)):
@@ -125,6 +154,7 @@ async def index(request: Request, user: dict = Depends(get_current_user)):
                 setup_incomplete = True
 
         system_status = await get_system_status(request)
+        vault_health = await get_vault_health()
         
         return templates.TemplateResponse(
             request=request, 
@@ -134,6 +164,7 @@ async def index(request: Request, user: dict = Depends(get_current_user)):
                 "admin_count": admin_count, 
                 "user": user, 
                 "system": system_status,
+                "vault": vault_health,
                 "setup_incomplete": setup_incomplete
             }
         )
@@ -164,6 +195,42 @@ async def logout(request: Request):
     """Clear session and redirect."""
     request.session.clear()
     return RedirectResponse(url="/", status_code=303)
+
+@app.post("/vault/save")
+async def save_vault_keys(
+    request: Request,
+    openai_key: str = Form(None),
+    deepgram_key: str = Form(None),
+    google_key: str = Form(None),
+    user: dict = Depends(get_current_user)
+):
+    if not user or not user.get("is_owner"):
+        return RedirectResponse(url="/?error=unauthorized", status_code=303)
+    
+    keys_to_save = {}
+    if openai_key: keys_to_save["OPENAI_API_KEY"] = openai_key
+    if deepgram_key: keys_to_save["DEEPGRAM_API_KEY"] = deepgram_key
+    if google_key: keys_to_save["GOOGLE_API_KEY"] = google_key
+
+    if not keys_to_save:
+        return RedirectResponse(url="/", status_code=303)
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{VAULT_URL}/v1/secret/data/mordomo/core/keys",
+                headers={"X-Vault-Token": VAULT_TOKEN},
+                json={"data": keys_to_save},
+                timeout=5.0
+            )
+            if resp.status_code in [200, 204]:
+                return RedirectResponse(url="/?success=vault_updated", status_code=303)
+            else:
+                logger.error(f"Vault save failed: {resp.text}")
+                return RedirectResponse(url="/?error=vault_fail", status_code=303)
+    except Exception as e:
+        logger.exception("Vault save exception")
+        return RedirectResponse(url="/?error=vault_timeout", status_code=303)
 
 @app.post("/add")
 async def add_resident(
@@ -233,8 +300,10 @@ async def resident_wizard(request: Request, target: str = "new", user: dict = De
                 full_user = dict(row)
                 full_user["id"] = str(full_user["id"])
 
+    vault_health = await get_vault_health()
+
     return templates.TemplateResponse(
         request=request, 
         name="wizard.html", 
-        context={"user": full_user, "target": target}
+        context={"user": full_user, "target": target, "vault": vault_health}
     )

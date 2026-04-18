@@ -92,14 +92,17 @@
         <!-- Main Workspace -->
         <main class="main-content">
             
-            {% if setup_incomplete %}
+            {% if setup_incomplete or vault.OPENAI_API_KEY == 'missing' %}
             <div class="glass-card reveal" style="border: 1px solid #f59e0b22; background: rgba(245, 158, 11, 0.03); margin-bottom: 40px; border-left: 4px solid #f59e0b;">
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px;">
                     <div>
-                        <h3 style="color: #f59e0b; margin-bottom: 10px;">⚠️ Setup Master Incompleto</h3>
-                        <p style="font-size: 0.9rem; color: var(--text-dim);">Para que o Aslam te reconheça no WhatsApp e pelo microfone local, precisamos mapear seus canais de conexão e sua biometria vocal.</p>
+                        <h3 style="color: #f59e0b; margin-bottom: 10px;">⚠️ Configuração do Núcleo Requerida</h3>
+                        <p style="font-size: 0.9rem; color: var(--text-dim);">
+                            {% if setup_incomplete %}• Perfil de Mestre (WhatsApp e Voz) incompleto.<br>{% endif %}
+                            {% if vault.OPENAI_API_KEY == 'missing' %}• Chaves de API essenciais não provisionadas no Vault.{% endif %}
+                        </p>
                     </div>
-                    <a href="/wizard?target=self" class="btn btn-primary" style="background: #f59e0b; border: 0; color: black; font-weight: bold;">COMPLETAR MEU SETUP</a>
+                    <a href="/wizard?target=self" class="btn btn-primary" style="background: #f59e0b; border: 0; color: black; font-weight: bold; padding: 12px 25px;">COMPLETAR SETUP CIERTO</a>
                 </div>
             </div>
             {% endif %}
@@ -116,11 +119,12 @@
                         <h4 style="margin-bottom: 20px; font-size: 0.8rem; color: var(--text-dim);">BASE DE INFRAESTRUTURA</h4>
                         <div class="module-card">
                             <div style="display: flex; justify-content: space-between; align-items: start;">
-                                <span>NATS / Redis / DB</span>
+                                <span>NATS / Redis / DB / Vault</span>
                                 <div>
                                     <span class="status-indicator {% if system.infra.nats == 'online' %}status-online{% else %}status-offline{% endif %}"></span>
                                     <span class="status-indicator {% if system.infra.redis == 'online' %}status-online{% else %}status-offline{% endif %}"></span>
                                     <span class="status-indicator {% if system.infra.postgres == 'online' %}status-online{% else %}status-offline{% endif %}"></span>
+                                    <span class="status-indicator {% if system.infra.vault == 'online' %}status-online{% else %}status-offline{% endif %}"></span>
                                 </div>
                             </div>
                             <span class="tech-detail">Core Communication Cluster</span>
