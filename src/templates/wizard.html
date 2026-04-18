@@ -232,6 +232,12 @@
         const status = document.getElementById('voice-status');
         const hiddenId = document.getElementById('voice_profile_id');
         
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            alert("⚠️ Erro de Segurança: O microfone só pode ser acessado via HTTPS ou localhost. Se estiver usando o IP, você precisa ativar a flag 'unsafely-treat-insecure-origin-as-secure' no seu navegador.");
+            status.innerHTML = '<span style="color: #ef4444">REQUER HTTPS / FLAG</span>';
+            return;
+        }
+
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
