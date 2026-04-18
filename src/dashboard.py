@@ -94,7 +94,7 @@ async def logout(request: Request):
 async def add_resident(
     request: Request,
     name: str = Form(...),
-    description: str = Form(""),
+    description: str = Form(None),
     is_owner: bool = Form(False),
     whatsapp: str = Form(None),
     password: str = Form(None)

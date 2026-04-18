@@ -241,12 +241,10 @@
             <form action="/add" method="POST">
                 <input type="hidden" name="is_owner" value="true">
                 <label class="input-label">Mestre Fundador</label>
-                <input type="text" name="name" class="input-field" placeholder="Seu Nome" required>
-                <label class="input-label">Especialidade</label>
-                <input type="text" name="description" class="input-field" placeholder="Ex: Admin Geral">
-                <label class="input-label">Master Password (Bcrypt)</label>
+                <input type="text" name="name" class="input-field" placeholder="Seu Nome Completo" required>
+                <label class="input-label">Master Password</label>
                 <input type="password" name="password" class="input-field" placeholder="••••••••" required>
-                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 20px;">INICIALIZAR ASLAM</button>
+                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 20px;">INICIALIZAR NÚCLEO ASLAM</button>
             </form>
             <div style="text-align: center; margin-top: 20px;"><a href="/?login_mode=true" style="font-size: 0.8rem; color: var(--text-dim);">Já tem uma identidade? Login</a></div>
         {% endif %}
