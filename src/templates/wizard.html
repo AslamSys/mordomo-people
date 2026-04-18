@@ -74,33 +74,36 @@
             </div>
         </div>
 
+        <!-- Step Indicator (Only for Persona) -->
+        {% if mode == 'persona' %}
         <div class="step-indicator">
             <div id="dot-1" class="step-dot active"></div>
             <div id="dot-2" class="step-dot"></div>
             <div id="dot-3" class="step-dot"></div>
             <div id="dot-4" class="step-dot"></div>
-            <div id="dot-5" class="step-dot"></div>
         </div>
+        {% endif %}
 
         <!-- The existing add/update form -->
         <form id="wizard-form" action="/add" method="POST">
             {% if target == 'self' %}
             <input type="hidden" name="id" value="{{ user.id }}">
             <input type="hidden" name="name" value="{{ user.name }}">
-            <input type="hidden" name="is_owner" value="true">
+            <input type="hidden" name="is_owner" value="{{ 'true' if user.is_owner else 'false' }}">
             {% endif %}
 
+            {% if mode == 'persona' %}
             <!-- Step 1: Identity/Essence -->
             <div id="step-1" class="wizard-step active">
                 {% if target == 'self' %}
                     <span class="section-label">PASSO 01 • IDENTIDADE</span>
-                    <h2 style="margin-bottom: 10px;">Confirmando sua Essência</h2>
+                    <h2 style="margin-bottom: 10px;">Dando Nome aos Bois</h2>
                     <p style="color: var(--text-dim); margin-bottom: 30px;">Estamos ajustando seu perfil de Mestre: <b>{{ user.name }}</b>.</p>
                     
-                    <label class="input-label">Especialidade / Descrição Técnica</label>
-                    <input type="text" name="description" class="input-field" placeholder="Ex: Administrador geral, Desenvolvedor..." value="{{ user.description or '' }}">
+                    <label class="input-label">Sua Especialidade (O que você faz no Aslam?)</label>
+                    <input type="text" name="description" class="input-field" placeholder="Ex: Mestre Fundador, Administrador..." value="{{ user.description or '' }}">
 
-                    <label class="input-label">Apelidos / Aliases (Como o Aslam pode te chamar?)</label>
+                    <label class="input-label">Como o Aslam deve te chamar? (Aliases)</label>
                     <input type="text" name="aliases" class="input-field" placeholder="Ex: Patrão, Chefe, Renan" value="{{ user.aliases|join(', ') if user.aliases else '' }}">
                 {% else %}
                     <span class="section-label">PASSO 01 • ESSÊNCIA</span>
@@ -122,7 +125,7 @@
             <div id="step-2" class="wizard-step">
                 <span class="section-label">PASSO 02 • CONEXÃO</span>
                 <h2 style="margin-bottom: 20px;">Canais de Comunicação</h2>
-                <p style="color: var(--text-dim); margin-bottom: 30px;">Vincule o número de WhatsApp. Sem isso, o OpenClaw irá ignorar todas as suas mensagens.</p>
+                <p style="color: var(--text-dim); margin-bottom: 30px;">Vincule o número de WhatsApp para receber notificações e disparar comandos.</p>
                 
                 <label class="input-label">Número do WhatsApp</label>
                 <input type="text" name="whatsapp" class="input-field" placeholder="+5511999999999" required value="{{ user.whatsapp_number or '' }}">
@@ -137,51 +140,36 @@
             <div id="step-3" class="wizard-step">
                 <span class="section-label">PASSO 03 • NEURAL BIO</span>
                 <h2 style="margin-bottom: 20px;">Biometria Vocal</h2>
-                <p style="color: var(--text-dim); margin-bottom: 30px;">O microfone local do Mordomo usará seu padrão vocal para autorizar comandos IoT e Finanças na Orange Pi.</p>
+                <p style="color: var(--text-dim); margin-bottom: 30px;">Grave sua "assinatura neural" para que o Aslam te reconheça pelo microfone local.</p>
                 
                 <div class="glass-card" style="text-align: center; padding: 40px; border: 1px dashed var(--border);">
                     <img src="/static/voice_bio.png" style="width: 120px; margin-bottom: 20px; opacity: 0.8;" alt="Voice Pattern">
                     <div id="voice-status" style="margin-bottom: 20px; font-weight: bold; color: var(--primary);">AGUARDANDO CALIBRAÇÃO...</div>
                     <button type="button" class="btn btn-outline" onclick="startEnrollment()" style="border-radius: 50px; padding: 15px 30px;">🎤 Iniciar Gravação</button>
-                    <input type="hidden" name="voice_profile_id" id="voice_profile_id" value="">
-                </div>
-
-                <!-- Help Badge for Microfone -->
-                <div class="glass-card" style="margin-top: 20px; padding: 15px; border: 1px solid rgba(245, 158, 11, 0.2); background: rgba(245, 158, 11, 0.05);">
-                    <div style="display: flex; gap: 15px; align-items: start;">
-                        <span style="font-size: 1.5rem;">💡</span>
-                        <div style="font-size: 0.75rem; line-height: 1.4; color: var(--text-dim);">
-                            <b style="color: #f59e0b; display: block; margin-bottom: 5px;">Dica de Ouro</b>
-                            Se estiver usando o IP 192.168.0.110 diretamente e o microfone não abrir, <b>ative a flag</b> de segurança do Chrome (instruções na aba de flags).
-                        </div>
-                    </div>
+                    <input type="hidden" name="voice_profile_id" id="voice_profile_id" value="{{ user.voice_profile_id or '' }}">
                 </div>
 
                 <div style="margin-top: 40px; display: flex; justify-content: space-between;">
                     <button type="button" class="btn btn-outline" onclick="nextStep(2)">⬅ Voltar</button>
-                    {% if user.is_owner %}
-                        <button type="button" class="btn btn-primary" onclick="nextStep(5)">Configurar Núcleo ➔</button>
-                    {% else %}
-                        <button type="button" class="btn btn-primary" onclick="nextStep(4)">Continuar ➔</button>
-                    {% endif %}
+                    <button type="button" class="btn btn-primary" onclick="nextStep(4)">Continuar ➔</button>
                 </div>
             </div>
 
-            <!-- Step 4: Governance (Non-admin) -->
+            <!-- Step 4: Governance (Final) -->
             <div id="step-4" class="wizard-step">
                 <span class="section-label">PASSO 04 • GOVERNANÇA</span>
-                <h2 style="margin-bottom: 20px;">Finalizar Integração</h2>
-                <p style="color: var(--text-dim); margin-bottom: 30px;">Confirme as permissões e persista os dados no ecossistema Aslam.</p>
+                <h2 style="margin-bottom: 20px;">Finalizar Identidade</h2>
+                <p style="color: var(--text-dim); margin-bottom: 30px;">Confirme os dados e valide sua integração no núcleo de controle.</p>
                 
-                {% if not target == 'self' %}
-                <div class="input-field" style="display: flex; align-items: center; gap: 15px; cursor: pointer;">
+                {% if target != 'self' %}
+                <div class="input-field" style="display: flex; align-items: center; gap: 15px; cursor: pointer; background: rgba(255,255,255,0.02); border: 1px solid var(--border);">
                     <input type="checkbox" name="is_owner" id="is_owner" value="true" style="width: 20px; height: 20px;">
-                    <label for="is_owner" style="margin-bottom: 0; cursor: pointer;">Definir como Administrador (Owner)</label>
+                    <label for="is_owner" style="margin-bottom: 0; cursor: pointer;">Definir como Administrador</label>
                 </div>
                 {% endif %}
 
-                <div class="identity-preview">
-                    <p style="font-size: 0.8rem; color: var(--text-dim);">Ao concluir, sua identidade será sincronizada com o <b>mordomo-brain</b> e validada pelo gateway de segurança.</p>
+                <div class="identity-preview" style="padding: 20px; border-radius: 10px; background: rgba(var(--primary-rgb), 0.05); border: 1px solid rgba(var(--primary-rgb), 0.2);">
+                    <p style="font-size: 0.8rem; color: var(--text-dim);">Sua identidade será persistida e o Aslam começará a processar seus eventos bio-acústicos.</p>
                 </div>
                 
                 <div style="margin-top: 40px; display: flex; justify-content: space-between;">
@@ -189,14 +177,16 @@
                     <button type="submit" class="btn btn-primary" style="background: var(--primary);">UNIFICAR IDENTIDADE</button>
                 </div>
             </div>
+            {% endif %}
         </form>
 
-        <!-- Step 5: Vault (Special for Admins) -->
+        {% if mode == 'core' %}
+        <!-- Step 5: Vault (Stand-alone Core Wizard) -->
         <form id="vault-form" action="/vault/save" method="POST">
-            <div id="step-5" class="wizard-step">
-                <span class="section-label">PASSO 05 • BÓVEDA DE CHAVES</span>
-                <h2 style="margin-bottom: 20px;">Provisionamento de Chaves</h2>
-                <p style="color: var(--text-dim); margin-bottom: 30px;">O Aslam necessita de combustível cognitivo para operar. Insira as chaves API pendentes.</p>
+            <div id="step-5" class="wizard-step active">
+                <span class="section-label" style="color: #ef4444;">CONFIGURAÇÃO DE NÚCLEO</span>
+                <h2 style="margin-bottom: 20px;">Bóveda de Combustível</h2>
+                <p style="color: var(--text-dim); margin-bottom: 30px;">Sincronize as chaves de API essenciais. O sistema de inteligência não despertará sem elas.</p>
                 
                 <div class="setup-list">
                     <div class="glass-card" style="padding: 20px; margin-bottom: 10px;">
@@ -206,7 +196,7 @@
                                 {{ vault.OPENAI_API_KEY|upper }}
                             </span>
                         </label>
-                        <input type="password" name="openai_key" class="input-field" placeholder="sk-...">
+                        <input type="password" name="openai_key" class="input-field" placeholder="sk-..." required>
                     </div>
 
                     <div class="glass-card" style="padding: 20px; margin-bottom: 10px;">
@@ -216,7 +206,7 @@
                                 {{ vault.DEEPGRAM_API_KEY|upper }}
                             </span>
                         </label>
-                        <input type="password" name="deepgram_key" class="input-field" placeholder="sk-...">
+                        <input type="password" name="deepgram_key" class="input-field" placeholder="sk-..." required>
                     </div>
 
                     <div class="glass-card" style="padding: 20px;">
@@ -226,16 +216,16 @@
                                 {{ vault.GOOGLE_API_KEY|upper }}
                             </span>
                         </label>
-                        <input type="password" name="google_key" class="input-field" placeholder="AIza...">
+                        <input type="password" name="google_key" class="input-field" placeholder="AIza..." required>
                     </div>
                 </div>
 
-                <div style="margin-top: 40px; display: flex; justify-content: space-between;">
-                    <button type="button" class="btn btn-outline" onclick="nextStep(3)">⬅ Voltar</button>
-                    <button type="button" class="btn btn-primary" onclick="submitBoth()">FINALIZAR TUDO ➔</button>
+                <div style="margin-top: 40px; display: flex; justify-content: flex-end;">
+                    <button type="button" class="btn btn-primary" onclick="submitCore()" style="background: #ef4444;">PROVISIONAR NÚCLEO ➔</button>
                 </div>
             </div>
         </form>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
@@ -333,6 +323,27 @@
         } catch (e) {
             console.error("Vault save failed", e);
             document.getElementById('wizard-form').submit();
+        }
+    }
+
+    async function submitCore() {
+        const vaultForm = document.getElementById('vault-form');
+        const formData = new FormData(vaultForm);
+        
+        try {
+            const resp = await fetch('/vault/save', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await resp.json();
+            if (result.status === 'ok') {
+                showModal("Núcleo Provisionado", "As chaves foram salvas no Vault. O sistema agora possui combustível cognitivo.", "🚀");
+                setTimeout(() => window.location.href = '/', 2000);
+            } else {
+                showModal("Erro", "Não foi possível salvar as chaves. Verifique a conexão com o Vault.", "❌");
+            }
+        } catch (e) {
+            showModal("Erro de Conexão", "O container do Vault não respondeu.", "📡");
         }
     }
 </script>

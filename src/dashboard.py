@@ -277,8 +277,13 @@ async def welcome_direct(request: Request):
     return templates.TemplateResponse(request=request, name="welcome.html", context={})
 
 @app.get("/wizard", response_class=HTMLResponse)
-async def resident_wizard(request: Request, target: str = "new", user: dict = Depends(get_current_user)):
-    """The Step-by-Step Resident Onboarding."""
+async def resident_wizard(
+    request: Request, 
+    target: str = "new", 
+    mode: str = "persona", 
+    user: dict = Depends(get_current_user)
+):
+    """The Step-by-Step Onboarding (Persona or Core)."""
     if not user:
         return RedirectResponse(url="/", status_code=303)
     
@@ -286,7 +291,7 @@ async def resident_wizard(request: Request, target: str = "new", user: dict = De
     full_user = user
     if target == "self":
         async with db._pool_conn() as conn:
-            row = await conn.fetchrow("SELECT id, name, aliases, whatsapp_number, voice_profile_id FROM people.pessoas WHERE id = $1", user["id"])
+            row = await conn.fetchrow("SELECT id, name, aliases, description, whatsapp_number, voice_profile_id, is_owner FROM people.pessoas WHERE id = $1", user["id"])
             if row:
                 full_user = dict(row)
                 full_user["id"] = str(full_user["id"])
@@ -296,7 +301,12 @@ async def resident_wizard(request: Request, target: str = "new", user: dict = De
     return templates.TemplateResponse(
         request=request, 
         name="wizard.html", 
-        context={"user": full_user, "target": target, "vault": vault_health}
+        context={
+            "user": full_user, 
+            "target": target, 
+            "mode": mode,
+            "vault": vault_health
+        }
     )
 @app.post("/wizard/voice/enroll")
 async def voice_enroll(

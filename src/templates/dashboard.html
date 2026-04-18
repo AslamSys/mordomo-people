@@ -102,7 +102,14 @@
                             {% if vault.OPENAI_API_KEY == 'missing' %}• Chaves de API essenciais não provisionadas no Vault.{% endif %}
                         </p>
                     </div>
-                    <a href="/wizard?target=self" class="btn btn-primary" style="background: #f59e0b; border: 0; color: black; font-weight: bold; padding: 12px 25px;">COMPLETAR SETUP CIERTO</a>
+                    <div style="display: flex; gap: 10px;">
+                        {% if setup_incomplete %}
+                        <a href="/wizard?target=self&mode=persona" class="btn btn-outline" style="font-size: 0.7rem; padding: 10px 15px;">AJUSTAR PERFIL</a>
+                        {% endif %}
+                        {% if vault.OPENAI_API_KEY == 'missing' %}
+                        <a href="/wizard?mode=core" class="btn btn-primary" style="background: #f59e0b; border: 0; color: black; font-weight: bold; padding: 10px 20px; font-size: 0.7rem;">PROVISIONAR CORE</a>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
             {% endif %}
