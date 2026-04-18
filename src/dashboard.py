@@ -97,7 +97,9 @@ async def add_resident(
     description: str = Form(None),
     is_owner: bool = Form(False),
     whatsapp: str = Form(None),
-    password: str = Form(None)
+    password: str = Form(None),
+    perm_iot: str = Form(None),
+    perm_finance: str = Form(None)
 ):
     """Handle resident creation (Wizard or Dashboard)."""
     try:
@@ -120,6 +122,12 @@ async def add_resident(
                         "INSERT INTO people.contatos (person_id, type, value_enc, label) VALUES ($1, 'whatsapp', $2, 'Principal')",
                         person_id, db.encrypt(whatsapp)
                     )
+                
+                # Save permissions
+                if perm_iot:
+                    await conn.execute("INSERT INTO people.permissoes (person_id, key, value) VALUES ($1, 'access.iot', 'true')", person_id)
+                if perm_finance:
+                    await conn.execute("INSERT INTO people.permissoes (person_id, key, value) VALUES ($1, 'access.finance', 'true')", person_id)
         
         # If was onboarding, log them in automatically
         if admin_count == 0:
