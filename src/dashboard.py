@@ -316,11 +316,28 @@ async def voice_enroll(
     if not user:
         return JSONResponse(content={"error": "unauthorized"}, status_code=401)
     
-    # In the future, this will publish to NATS for the audio-pipeline (pyannote/deepgram)
-    # For now, we simulate the ID generation but we could save the file for debugging
-    logger.info(f"Received voice enrollment from {user['name']} (Size: {audio.size} bytes)")
+    audio_bytes = await audio.read()
+    logger.info(f"Received voice enrollment from {user['name']} (Size: {len(audio_bytes)} bytes)")
     
-    # Simulate a voice print ID
-    voice_id = f"voice_profile_{user['id'][:8]}"
+    # ── Bridge to NATS ──────────────────────
+    # Other services (audio-pipeline) can listen to this and generate the real print
+    try:
+        enrollment_event = {
+            "user_id": user["id"],
+            "user_name": user["name"],
+            "action": "enroll_voice",
+            "format": "wav"
+        }
+        # Publish audio as raw bytes with metadata in headers
+        await request.app.state.nc.publish(
+            "mordomo.audio.enrollment",
+            audio_bytes,
+            headers={"x-mordomo-meta": str(enrollment_event)}
+        )
+    except Exception as e:
+        logger.error(f"Failed to publish enrollment to NATS: {e}")
+
+    # Generate the ID that will be used in the User DB
+    voice_id = f"vprofile_{user['id'][:8]}"
     
     return {"voice_id": voice_id}

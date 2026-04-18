@@ -291,13 +291,16 @@
 
             // Start recording
             mediaRecorder.start();
-            status.innerHTML = '<span style="color: #f59e0b">● GRAVANDO... FALE "ASLAM, ME IDENTIFIQUE"</span>';
+            status.innerHTML = '<span style="color: #f59e0b; display: block; animation: pulse 1.5s infinite;">● GRAVANDO (10s)... LEIA EM VOZ ALTA:</span>' + 
+                              '<div style="font-size: 0.85rem; color: white; margin-top: 10px; border: 1px solid var(--primary); padding: 10px; border-radius: 8px;">' +
+                              '"O Mordomo Aslam é o centro de comando desta residência, protegendo e automatizando cada detalhe do nosso lar de forma inteligente e segura."' +
+                              '</div>';
             
-            // Record for 3 seconds
+            // Record for 10 seconds
             setTimeout(() => {
                 mediaRecorder.stop();
                 stream.getTracks().forEach(track => track.stop());
-            }, 3000);
+            }, 10000);
 
         } catch (err) {
             alert("Erro ao acessar microfone: " + err.message);
