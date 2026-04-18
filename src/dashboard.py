@@ -11,8 +11,8 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-# Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Password hashing context - using sha256_crypt for better stability and no length issues
+pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
 
 app = FastAPI(title="Mordomo HQ | Management Portal")
 
@@ -106,9 +106,8 @@ async def add_resident(
         if admin_count == 0:
             is_owner = True # First user is always owner
             
-        # Bcrypt has a 72-character limit. Truncate to avoid errors.
-        safe_password = password[:72] if password else None
-        hashed_pw = pwd_context.hash(safe_password) if safe_password else None
+        # Hashing without truncation
+        hashed_pw = pwd_context.hash(password) if password else None
         
         async with db._pool_conn() as conn:
             async with conn.transaction():
