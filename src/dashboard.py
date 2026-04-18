@@ -106,7 +106,9 @@ async def add_resident(
         if admin_count == 0:
             is_owner = True # First user is always owner
             
-        hashed_pw = pwd_context.hash(password) if password else None
+        # Bcrypt has a 72-character limit. Truncate to avoid errors.
+        safe_password = password[:72] if password else None
+        hashed_pw = pwd_context.hash(safe_password) if safe_password else None
         
         async with db._pool_conn() as conn:
             async with conn.transaction():
