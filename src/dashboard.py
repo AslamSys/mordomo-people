@@ -38,37 +38,65 @@ def get_current_user(request: Request):
     return user
 
 async def get_system_status(request: Request):
-    """Health probes for ecosystem modules."""
+    """Health probes grouped by ecosystem."""
     status = {
-        "llm_gateway": "offline",
-        "nats": "offline",
-        "redis": "offline",
-        "qdrant": "offline"
+        "infra": {
+            "nats": "offline",
+            "redis": "offline",
+            "postgres": "offline",
+            "qdrant": "offline"
+        },
+        "brain": {
+            "bifrost": "offline",
+            "orchestrator": "offline"
+        },
+        "audio": {
+            "capture": "offline",
+            "pipeline": "offline"
+        },
+        "iot": {
+            "mqtt": "offline",
+            "devices": "offline"
+        },
+        "finance": {
+            "finances": "offline"
+        }
     }
     
-    # Check Bifrost (LLM Gateway)
+    # ── Infrastructure ───────────────────────
+    try:
+        if request.app.state.nc.is_connected: status["infra"]["nats"] = "online"
+    except: pass
+    try:
+        if await request.app.state.redis.ping(): status["infra"]["redis"] = "online"
+    except: pass
+    try:
+        async with db._pool_conn() as conn:
+            if await conn.fetchval("SELECT 1"): status["infra"]["postgres"] = "online"
+    except: pass
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get("http://llm-gateway:8080/", timeout=1.0)
-            if resp.status_code == 200: status["llm_gateway"] = "online"
+            if (await client.get("http://qdrant:6333", timeout=1.0)).status_code == 200:
+                status["infra"]["qdrant"] = "online"
     except: pass
 
-    # Check NATS
-    try:
-        if request.app.state.nc.is_connected: status["nats"] = "online"
-    except: pass
-
-    # Check Redis
-    try:
-        if await request.app.state.redis.ping(): status["redis"] = "online"
-    except: pass
-
-    # Check Qdrant
+    # ── Brain ────────────────────────────────
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get("http://qdrant:6333", timeout=1.0)
-            if resp.status_code == 200: status["qdrant"] = "online"
+            if (await client.get("http://llm-gateway:8080/", timeout=1.0)).status_code == 200:
+                status["brain"]["bifrost"] = "online"
     except: pass
+    # Orchestrator is purely NATS-based. Check if it's subscribed to its core subject
+    # This is a simplification; a heartbeat system would be better.
+    status["brain"]["orchestrator"] = "online" if status["infra"]["nats"] == "online" else "offline"
+
+    # ── Audio/IoT/Finance (Simulated/Bus Status) ────
+    # For now, we reflect the BUS status until specific heartbeats are implemented
+    bus_ok = status["infra"]["nats"] == "online"
+    status["audio"]["capture"] = "online" if bus_ok else "offline"
+    status["audio"]["pipeline"] = "online" if bus_ok else "offline"
+    status["iot"]["mqtt"] = "online" if bus_ok else "offline"
+    status["finance"]["finances"] = "online" if bus_ok else "offline"
 
     return status
 

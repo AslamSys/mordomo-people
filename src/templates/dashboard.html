@@ -10,6 +10,13 @@
     padding: 120px 0;
 }
 
+.ecosystem-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-top: 30px;
+}
+
 .sidebar {
     position: sticky;
     top: 100px;
@@ -91,45 +98,97 @@
                 <h2 style="font-size: 2.5rem; margin-bottom: 30px;">Estado do Ecossistema</h2>
                 <p style="color: var(--text-dim);">Monitoramento em tempo real dos microsserviços e caminhos de comunicação do Aslam.</p>
                 
-                <div class="nucleus-map">
-                    <!-- LLM Gateway -->
-                    <div class="module-card">
-                        <div style="display: flex; justify-content: space-between; align-items: start;">
-                            <b>Bifrost Gateway</b>
-                            <span class="status-indicator {% if system.llm_gateway == 'online' %}status-online{% else %}status-offline{% endif %}"></span>
+                <div class="ecosystem-grid">
+                    <!-- Ecosystem: INFRA -->
+                    <div class="glass-card" style="padding: 25px;">
+                        <h4 style="margin-bottom: 20px; font-size: 0.8rem; color: var(--text-dim);">BASE DE INFRAESTRUTURA</h4>
+                        <div class="module-card">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <span>NATS / Redis / DB</span>
+                                <div>
+                                    <span class="status-indicator {% if system.infra.nats == 'online' %}status-online{% else %}status-offline{% endif %}"></span>
+                                    <span class="status-indicator {% if system.infra.redis == 'online' %}status-online{% else %}status-offline{% endif %}"></span>
+                                    <span class="status-indicator {% if system.infra.postgres == 'online' %}status-online{% else %}status-offline{% endif %}"></span>
+                                </div>
+                            </div>
+                            <span class="tech-detail">Core Communication Cluster</span>
                         </div>
-                        <span class="tech-detail">Port: 3000 | Type: LiteLLM</span>
-                        <i class="tech-detail" style="opacity: 0.5;">Handles Flash 2.0 & Llama 3.3</i>
+                        <div class="module-card" style="margin-top: 10px;">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <span>Vector Memory</span>
+                                <span class="status-indicator {% if system.infra.qdrant == 'online' %}status-online{% else %}status-offline{% endif %}"></span>
+                            </div>
+                            <span class="tech-detail">Qdrant Database Core</span>
+                        </div>
                     </div>
 
-                    <!-- NATS -->
-                    <div class="module-card">
-                        <div style="display: flex; justify-content: space-between; align-items: start;">
-                            <b>NATS JetStream</b>
-                            <span class="status-indicator {% if system.nats == 'online' %}status-online{% else %}status-offline{% endif %}"></span>
+                    <!-- Ecosystem: BRAIN -->
+                    <div class="glass-card" style="padding: 25px;">
+                        <h4 style="margin-bottom: 20px; font-size: 0.8rem; color: var(--text-dim);">NÚCLEO COGNITIVO (BRAIN)</h4>
+                        <div class="module-card">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <span>Bifrost Gateway</span>
+                                <span class="status-indicator {% if system.brain.bifrost == 'online' %}status-online{% else %}status-offline{% endif %}"></span>
+                            </div>
+                            <span class="tech-detail">LLM Routing Layer</span>
                         </div>
-                        <span class="tech-detail">Port: 4222 | Bus: Connected</span>
-                        <i class="tech-detail" style="opacity: 0.5;">Message Persistence Layer</i>
+                        <div class="module-card" style="margin-top: 10px;">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <span>Orchestrator</span>
+                                <span class="status-indicator {% if system.brain.orchestrator == 'online' %}status-online{% else %}status-offline{% endif %}"></span>
+                            </div>
+                            <span class="tech-detail">Decision Engine</span>
+                        </div>
                     </div>
 
-                    <!-- Redis -->
-                    <div class="module-card">
-                        <div style="display: flex; justify-content: space-between; align-items: start;">
-                            <b>Real-time Cache</b>
-                            <span class="status-indicator {% if system.redis == 'online' %}status-online{% else %}status-offline{% endif %}"></span>
+                    <!-- Ecosystem: AUDIO -->
+                    <div class="glass-card" style="padding: 25px;">
+                        <h4 style="margin-bottom: 20px; font-size: 0.8rem; color: var(--text-dim);">PIPELINE DE ÁUDIO</h4>
+                        <div class="module-card">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <span>Capture & VAD</span>
+                                <span class="status-indicator {% if system.audio.capture == 'online' %}status-online{% else %}status-offline{% endif %}"></span>
+                            </div>
+                            <span class="tech-detail">Microphone Pulse</span>
                         </div>
-                        <span class="tech-detail">Database: 1 | Type: Redis</span>
-                        <i class="tech-detail" style="opacity: 0.5;">Session & Permission Buffering</i>
+                        <div class="module-card" style="margin-top: 10px;">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <span>Neural Audio</span>
+                                <span class="status-indicator {% if system.audio.pipeline == 'online' %}status-online{% else %}status-offline{% endif %}"></span>
+                            </div>
+                            <span class="tech-detail">Whisper + Bio Processing</span>
+                        </div>
                     </div>
 
-                    <!-- Qdrant -->
-                    <div class="module-card">
-                        <div style="display: flex; justify-content: space-between; align-items: start;">
-                            <b>Vector Memory</b>
-                            <span class="status-indicator {% if system.qdrant == 'online' %}status-online{% else %}status-offline{% endif %}"></span>
+                    <!-- Ecosystem: IOT -->
+                    <div class="glass-card" style="padding: 25px;">
+                        <h4 style="margin-bottom: 20px; font-size: 0.8rem; color: var(--text-dim);">CÉLULA IOT & EDGE</h4>
+                        <div class="module-card">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <span>MQTT Broker</span>
+                                <span class="status-indicator {% if system.iot.mqtt == 'online' %}status-online{% else %}status-offline{% endif %}"></span>
+                            </div>
+                            <span class="tech-detail">Hardware Interface</span>
                         </div>
-                        <span class="tech-detail">Port: 6333 | Engine: Qdrant</span>
-                        <i class="tech-detail" style="opacity: 0.5;">RAG & Long-term Context</i>
+                        <div class="module-card" style="margin-top: 10px;">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <span>Device Manager</span>
+                                <span class="status-indicator {% if system.iot.devices == 'online' %}status-online{% else %}status-offline{% endif %}"></span>
+                            </div>
+                            <span class="tech-detail">Zigbee / WiFi Control</span>
+                        </div>
+                    </div>
+
+                    <!-- Ecosystem: FINANCE -->
+                    <div class="glass-card" style="padding: 25px;">
+                        <h4 style="margin-bottom: 20px; font-size: 0.8rem; color: var(--text-dim);">MÓDULO FINANCEIRO</h4>
+                        <div class="module-card">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <span>Finance Skill</span>
+                                <span class="status-indicator {% if system.finance.finances == 'online' %}status-online{% else %}status-offline{% endif %}"></span>
+                            </div>
+                            <span class="tech-detail">Bank Sync & PIX Automation</span>
+                        </div>
                     </div>
                 </div>
 
