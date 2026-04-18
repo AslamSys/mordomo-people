@@ -131,6 +131,20 @@
                     <input type="hidden" name="voice_profile_id" id="voice_profile_id" value="">
                 </div>
 
+                <!-- Help Badge for Microfone -->
+                <div class="glass-card" style="margin-top: 20px; padding: 15px; border: 1px solid rgba(245, 158, 11, 0.2); background: rgba(245, 158, 11, 0.05);">
+                    <div style="display: flex; gap: 15px; align-items: start;">
+                        <span style="font-size: 1.5rem;">💡</span>
+                        <div style="font-size: 0.75rem; line-height: 1.4; color: var(--text-dim);">
+                            <b style="color: #f59e0b; display: block; margin-bottom: 5px;">Não consegue gravar?</b>
+                            O microfone requer um <b>Contexto Seguro</b>. Se estiver usando o IP 192.168.0.110, faça o seguinte:<br>
+                            1. Copie: <code style="background: rgba(255,255,255,0.1); padding: 2px 5px; border-radius: 4px;">chrome://flags/#unsafely-treat-insecure-origin-as-secure</code><br>
+                            2. Ative e adicione <code style="background: rgba(255,255,255,0.1); padding: 2px 5px; border-radius: 4px;">http://192.168.0.110:8000</code> na lista.<br>
+                            3. Reinicie o navegador.
+                        </div>
+                    </div>
+                </div>
+
                 <div style="margin-top: 40px; display: flex; justify-content: space-between;">
                     <button type="button" class="btn btn-outline" onclick="nextStep(2)">⬅ Voltar</button>
                     {% if user.is_owner %}
