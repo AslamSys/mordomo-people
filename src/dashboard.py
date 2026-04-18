@@ -23,6 +23,7 @@ app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)
 
 # Setup templates
 templates = Jinja2Templates(directory="src/templates")
+app.mount("/static", StaticFiles(directory="src/static"), name="static")
 
 # Helper to check if an admin exists
 async def get_admin_count():
