@@ -66,6 +66,31 @@ async def resolve_person(name: str) -> Optional[dict]:
         return person
 
 
+async def resolve_person_by_contact(identifier: str, channel: str) -> Optional[dict]:
+    """Find a person by a contact identifier (e.g. whatsapp number)."""
+    async with _pool_conn() as conn:
+        # 1. Find the person_id that owns this contact (decrypt and match)
+        # Since contact values are encrypted, we fetch all for that channel and check
+        # (Alternatively, we could use a hashed_value for indexing, but for now we'll match decrypted)
+        rows = await conn.fetch(
+            "SELECT person_id, value_enc FROM people.contatos WHERE type = $1",
+            channel
+        )
+        
+        target_person_id = None
+        for r in rows:
+            if decrypt(r["value_enc"]) == identifier:
+                target_person_id = r["person_id"]
+                break
+        
+        if not target_person_id:
+            return None
+            
+        # 2. Re-use the existing resolve_person with the person's name (found via ID)
+        name = await conn.fetchval("SELECT name FROM people.pessoas WHERE id = $1", target_person_id)
+        return await resolve_person(name)
+
+
 # ── Permissions ────────────────────────────────────────────────────────────────
 
 async def get_permissions(person_id: str) -> dict:

@@ -31,16 +31,27 @@ async def handle_resolve(msg: Msg) -> None:
     try:
         payload = json.loads(msg.data)
         name: str = payload.get("name", "").strip()
-        if not name:
-            await msg.respond(_err("'name' is required"))
+        identifier: str = payload.get("identifier", "").strip()
+        channel: str = payload.get("channel", "").strip()
+
+        if not name and not (identifier and channel):
+            await msg.respond(_err("'name' or ('identifier' and 'channel') is required"))
             return
 
-        # Cache hit
-        person = await cache.get_cached_person(name)
-        if person is None:
-            person = await db.resolve_person(name)
-            if person:
-                await cache.set_cached_person(name, person)
+        person = None
+
+        # Try reverse lookup if ID/Channel provided
+        if identifier and channel:
+            person = await db.resolve_person_by_contact(identifier, channel)
+
+        # Fallback to name if not found via identifier
+        if not person and name:
+            # Cache hit
+            person = await cache.get_cached_person(name)
+            if person is None:
+                person = await db.resolve_person(name)
+                if person:
+                    await cache.set_cached_person(name, person)
                 # Also cache by canonical name in case the lookup was by alias
                 if person["name"].lower() != name.lower():
                     await cache.set_cached_person(person["name"], person)
