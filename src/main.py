@@ -46,6 +46,8 @@ async def main() -> None:
 
     # 1. Start NATS in background
     nc = await run_nats()
+    app.state.nc = nc
+    app.state.redis = cache.redis_client
 
     # 2. Configure and Start FastAPI (Uvicorn)
     config = uvicorn.Config(

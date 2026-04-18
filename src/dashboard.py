@@ -37,7 +37,7 @@ def get_current_user(request: Request):
         return None
     return user
 
-async def get_system_status():
+async def get_system_status(request: Request):
     """Health probes for ecosystem modules."""
     status = {
         "llm_gateway": "offline",
@@ -46,23 +46,21 @@ async def get_system_status():
         "qdrant": "offline"
     }
     
-    # Check LLM Gateway (LiteLLM)
+    # Check Bifrost (LLM Gateway)
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get("http://llm-gateway:3000/health/readiness", timeout=1.0)
+            resp = await client.get("http://llm-gateway:8080/", timeout=1.0)
             if resp.status_code == 200: status["llm_gateway"] = "online"
     except: pass
 
     # Check NATS
     try:
-        from src import nats_client # Assuming you have a nats_client wrapper
-        if nats_client.is_connected: status["nats"] = "online"
+        if request.app.state.nc.is_connected: status["nats"] = "online"
     except: pass
 
     # Check Redis
     try:
-        from src.cache import redis_client
-        if await redis_client.ping(): status["redis"] = "online"
+        if await request.app.state.redis.ping(): status["redis"] = "online"
     except: pass
 
     # Check Qdrant
@@ -91,7 +89,7 @@ async def index(request: Request, user: dict = Depends(get_current_user)):
             rows = await conn.fetch("SELECT id, name, description, is_owner FROM people.pessoas ORDER BY name")
         residents = [dict(r) for r in rows]
         
-        system_status = await get_system_status()
+        system_status = await get_system_status(request)
         
         return templates.TemplateResponse(
             request=request, 
