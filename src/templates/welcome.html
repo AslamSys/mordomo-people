@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}Aslam HQ | Master Intelligence Architecture{% endblock %}
+
+{% block extra_css %}
+.hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-top: 140px;
+}
+
+.hero h1 {
+    font-size: 7rem;
+    font-weight: 800;
+    margin-bottom: 20px;
+    letter-spacing: -6px;
+    line-height: 0.8;
+}
+
+.hero p {
+    font-size: 1.6rem;
+    color: var(--text-dim);
+    max-width: 900px;
+    margin-bottom: 50px;
+}
+
+.tech-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 30px;
+    padding: 100px 0;
+}
+
+.tech-card {
+    padding: 45px;
+    border-top: 1px solid var(--border);
+    transition: 0.5s cubic-bezier(0.2, 1, 0.3, 1);
+}
+.tech-card:hover { background: rgba(255,255,255,0.02); transform: translateY(-10px); border-top-color: var(--primary); }
+
+.tech-card h3 { font-size: 1.5rem; margin-bottom: 10px; color: white; }
+.tech-card .detail { font-size: 0.8rem; color: var(--primary-light); font-weight: 800; text-transform: uppercase; margin-bottom: 20px; display: block; }
+.tech-card p { color: var(--text-dim); font-size: 0.9rem; line-height: 1.6; }
+
+/* Deep Dive Section */
+.deep-dive {
+    background: rgba(139, 92, 246, 0.03);
+    border-radius: 40px;
+    padding: 80px 60px;
+    margin-bottom: 150px;
+    border: 1px solid var(--border);
+}
+
+.pipeline-viz {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 60px 0;
+    gap: 20px;
+}
+
+.viz-step {
+    flex: 1;
+    padding: 25px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    text-align: center;
+    font-size: 0.8rem;
+}
+
+.viz-arrow { color: var(--border); font-size: 1.5rem; }
+
+.section-label { font-size: 0.75rem; letter-spacing: 5px; color: var(--primary-light); margin-bottom: 20px; font-weight: 800; }
+
+.infra-specs {
+    display: flex;
+    gap: 40px;
+    justify-content: center;
+    margin-top: 40px;
+}
+
+.spec-item { text-align: center; }
+.spec-item .val { display: block; font-size: 1.5rem; font-weight: 800; }
+.spec-item .lab { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; }
+
+@media (max-width: 800px) {
+    .pipeline-viz { flex-direction: column; }
+    .viz-arrow { transform: rotate(90deg); }
+}
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    
+    <!-- Hero Principal -->
+    <section class="hero reveal">
+        <div class="section-label">IDENTIDADE • ACÚSTICA • INFRAESTRUTURA</div>
+        <h1 class="gradient-text">Arquitetura de Consciência.</h1>
+        <p>O Aslam não é apenas código. É uma orquestra de microsserviços distribuídos, biometria de voz em tempo real e segurança de nível bancário unificados em um único ecossistema inteligente.</p>
+        <div style="display: flex; gap: 20px;">
+            <a href="#setup" class="btn btn-primary">Ativar Núcleo Mestre</a>
+            <a href="#pipeline" class="btn btn-outline">Deep Dive Técnico</a>
+        </div>
+    </section>
+
+    <!-- Intelligence Pillars -->
+    <section class="tech-grid">
+        <div class="tech-card glass-card reveal">
+            <span class="detail">Frontal Lobe • Brain</span>
+            <h3>Cognitive RAG & Bifrost</h3>
+            <p>O cérebro do Aslam opera com camadas de classificação (Bifrost). Ele separa intenções triviais de pesquisas profundas, utilizando RAG para consultar sua base de conhecimento privada com precisão cirúrgica.</p>
+        </div>
+        
+        <div class="tech-card glass-card reveal">
+            <span class="detail">Nervous System • Orchestrator</span>
+            <h3>Strategic Execution</h3>
+            <p>A orquestração não é linear. O Mordomo Orchestrator decide em tempo real se deve disparar um robô RPA, consultar uma API de IoT ou apenas responder via áudio, baseando-se no contexto e prioridade.</p>
+        </div>
+
+        <div class="tech-card glass-card reveal">
+            <span class="detail">Edge Satellites • IoT</span>
+            <h3>Distributed Audition</h3>
+            <p>Através de satélites ESP32 e arquitetura Node-Centric, o Aslam tem ouvidos em todos os cômodos. O processamento pesado fica no Orange Pi 5, mas a percepção é onipresente.</p>
+        </div>
+    </section>
+
+    <!-- Infrastructure Visualization -->
+    <section id="infra" class="deep-dive reveal">
+        <div class="section-label">BACKBONE INDUSTRIAL</div>
+        <h2>Infraestrutura de Baixa Latência</h2>
+        <p style="color: var(--text-dim); margin-top: 20px;">Utilizamos <strong>NATS JetStream</strong> para garantir que nenhuma mensagem seja perdida, mesmo em quedas de rede, unido ao **ZeroMQ** para o streaming de áudio bruto.</p>
+
+        <div class="pipeline-viz">
+            <div class="viz-step"><b>ORANGE PI 5</b><br>Core Processor</div>
+            <div class="viz-arrow">← NATS →</div>
+            <div class="viz-step" style="border-color: var(--primary);"><b>JETSTREAM</b><br>Persistence Layer</div>
+            <div class="viz-arrow">← ZMQ →</div>
+            <div class="viz-step"><b>ESP32 NODES</b><br>Edge Percept</div>
+        </div>
+    </section>
+
+        <div class="infra-specs">
+            <div class="spec-item"><span class="val">8-Core</span><span class="lab">ARM64 Architecture</span></div>
+            <div class="spec-item"><span class="val">ZeroMQ/NATS</span><span class="lab">Hybrid Bus</span></div>
+            <div class="spec-item"><span class="val">AES-GCM</span><span class="lab">Vault Security</span></div>
+        </div>
+    </section>
+
+    <!-- OpenClaw Spotlight -->
+    <section class="reveal" style="text-align: center; margin-bottom: 150px;">
+        <h2 style="font-size: 3rem; margin-bottom: 30px;">O Explorador Autônomo</h2>
+        <p style="color: var(--text-dim); max-width: 750px; margin: 0 auto 40px;">
+            Através do <strong>OpenClaw Agent</strong>, o ecossistema Aslam navega nativamente na web. Ele não apenas lê dados; ele executa ações, preenche formulários e realiza pesquisas complexas em navegadores reais, agindo como seus olhos no mundo digital.
+        </p>
+        <div class="glass-card" style="padding: 30px; display: inline-block;">
+            <code style="color: var(--primary-light);">Decision Engine: Gemini 2.0 Flash / GPT-4o-mini</code>
+        </div>
+    </section>
+
+    <!-- Final Setup / Login -->
+    <section id="setup" class="setup-wizard glass-card reveal" style="max-width: 600px; margin: 0 auto 100px; padding: 60px;">
+        
+        {% if login_mode %}
+            <h2 style="text-align: center; margin-bottom: 40px;">Acesso Restrito</h2>
+            <p style="text-align: center; color: var(--text-dim); margin-bottom: 30px;">Identidade mestre detectada. Por favor, autentique-se para acessar o HQ.</p>
+            <form action="/login" method="POST">
+                <label class="input-label">Nome do Administrador</label>
+                <input type="text" name="name" class="input-field" placeholder="Ex: Renan" required>
+                
+                <label class="input-label">Senha</label>
+                <input type="password" name="password" class="input-field" placeholder="••••••••" required>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 20px; font-size: 1.1rem; margin-top: 10px;">
+                    ENTRAR NO SISTEMA
+                </button>
+            </form>
+            <div style="text-align: center; margin-top: 20px;">
+                <a href="/welcome" style="font-size: 0.8rem; color: var(--primary-light);">Ver Manifesto do Sistema</a>
+            </div>
+        {% else %}
+            <h2 style="text-align: center; margin-bottom: 40px;">Inicializar Administrador</h2>
+            <form action="/add" method="POST">
+                <input type="hidden" name="is_owner" value="true">
+                <label class="input-label">Nome Completo</label>
+                <input type="text" name="name" class="input-field" placeholder="Identidade Mestra" required>
+                
+                <label class="input-label">Especialidade / Cargo</label>
+                <input type="text" name="description" class="input-field" placeholder="Ex: Lead Engineer">
+
+                <label class="input-label">Master Password (Vault Access)</label>
+                <input type="password" name="password" class="input-field" placeholder="••••••••" required>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 20px; font-size: 1.1rem; margin-top: 10px;">
+                    CONFIRMAR E ATIVAR
+                </button>
+            </form>
+            <div style="text-align: center; margin-top: 20px;">
+                <a href="/?login_mode=true" style="font-size: 0.8rem; color: var(--text-dim);">Já possui cadastro? Entrar</a>
+            </div>
+        {% endif %}
+    </section>
+
+</div>
+{% endblock %}

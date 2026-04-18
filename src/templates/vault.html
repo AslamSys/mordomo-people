@@ -1,0 +1,49 @@
+<div class="provisioning-wizard">
+    <div class="section-label">SECRET PROVISIONING</div>
+    <h3 style="margin-bottom: 25px;">Configuração do Núcleo</h3>
+    
+    <div class="setup-list">
+        <!-- Brain Config -->
+        <div class="setup-item glass-card" style="padding: 20px; margin-bottom: 15px; border-left: 4px solid var(--primary);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h4 style="color: white;">🧠 The Brain [LLM]</h4>
+                    <p style="font-size: 0.8rem; color: var(--text-dim);">Chaves de API para processamento cognitivo (OpenAI/Groq/Gemini).</p>
+                </div>
+                <span class="badge" style="background: #ef4444; font-size: 0.6rem;">MISSING</span>
+            </div>
+            <div style="margin-top: 15px; display: flex; gap: 10px;">
+                <input type="password" placeholder="sk-..." class="input-field" style="margin-bottom: 0; padding: 8px 12px; font-size: 0.8rem; flex: 1;">
+                <button class="btn btn-primary" style="padding: 8px 15px; font-size: 0.75rem;">Salvar</button>
+            </div>
+        </div>
+
+        <!-- IoT Config -->
+        <div class="setup-item glass-card" style="padding: 20px; margin-bottom: 15px; border-left: 4px solid #10b981;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h4 style="color: white;">📡 Edge Nodes [IoT]</h4>
+                    <p style="font-size: 0.8rem; color: var(--text-dim);">Configuração do broker NATS para satélites ESP32.</p>
+                </div>
+                <span class="badge" style="background: #fbbf24; color: #000; font-size: 0.6rem;">DEFAULT</span>
+            </div>
+            <div style="margin-top: 15px;">
+                <button class="btn btn-outline" style="padding: 8px 15px; font-size: 0.75rem;">Configurar Endereço NATS</button>
+            </div>
+        </div>
+
+        <!-- Orchestrator Config -->
+        <div class="setup-item glass-card" style="padding: 20px; border-left: 4px solid #3b82f6;">
+            <div>
+                <h4 style="color: white;">⚙️ Orchestrator Strategy</h4>
+                <p style="font-size: 0.8rem; color: var(--text-dim);">Definição de permissões globais e canais ativos (WhatsApp/Telegram).</p>
+            </div>
+            <button class="btn btn-outline" style="padding: 8px 15px; font-size: 0.75rem; margin-top: 15px;">Provisionar Tokens</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .setup-list { display: flex; flex-direction: column; gap: 10px; }
+    .badge { padding: 4px 8px; border-radius: 6px; font-weight: 800; }
+</style>
