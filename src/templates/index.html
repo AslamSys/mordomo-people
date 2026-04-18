@@ -167,22 +167,30 @@
 </head>
 <body>
     <div class="container">
-        <header>
-            <div class="logo">MORDOMO<span>.PEOPLE</span></div>
-            <a href="/add" class="btn-add">+ Novo Residente</a>
-        </header>
+        <div class="header-section reveal">
+            <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 2rem;">
+                <a href="/" class="btn btn-outline" style="padding: 10px 20px; font-size: 0.7rem; border-color: rgba(255,255,255,0.1); text-decoration: none; color: white; border: 1px solid rgba(255,255,255,0.1); border-radius: 5px;">⬅ VOLTAR AO HUB</a>
+                <div>
+                    <span class="section-label" style="font-size: 0.7rem; color: var(--text-dim);">ASLAM IDENTITY CORE</span>
+                    <h1>Gestão de Residentes</h1>
+                </div>
+            </div>
+            <a href="/wizard" class="btn btn-primary" style="background: var(--primary-color); padding: 10px 20px; text-decoration: none; color: white; border-radius: 5px;">+ Novo Residente</a>
+        </div>
 
         {% if residents %}
             <div class="grid-residents">
-                {% for r in residents %}
+                {% for person in residents %}
                     <div class="card">
                         <div class="card-header">
-                            <div class="resident-name">{{ r.name }}</div>
-                            {% if r.is_owner %}
+                            <div class="resident-name">{{ person.name }}</div>
+                            {% if person.is_owner %}
                                 <div class="tag-admin">Admin</div>
                             {% endif %}
                         </div>
-                        <p class="resident-desc">{{ r.description or "Nenhuma descrição definida." }}</p>
+                        <p class="resident-desc" style="color: var(--primary-color); font-size: 0.7rem; font-weight: bold; text-transform: uppercase; margin-bottom: 5px;">
+                            {{ person.description or 'Sem Especialidade' }}
+                        </p>
                         <div class="card-footer">
                             <div class="identity-badge">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>

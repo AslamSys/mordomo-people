@@ -197,6 +197,7 @@ async def logout(request: Request):
     return RedirectResponse(url="/", status_code=303)
 
 @app.post("/vault/save")
+@app.post("/vault/save")
 async def save_vault_keys(
     request: Request,
     openai_key: str = Form(None),
@@ -205,77 +206,67 @@ async def save_vault_keys(
     user: dict = Depends(get_current_user)
 ):
     if not user or not user.get("is_owner"):
-        return RedirectResponse(url="/?error=unauthorized", status_code=303)
+        return JSONResponse({"error": "unauthorized"}, status_code=403)
+        
+    # We support both AJAX (Form data) and regular Form submit
+    keys_to_save = {
+        "OPENAI_API_KEY": openai_key,
+        "DEEPGRAM_API_KEY": deepgram_key,
+        "GOOGLE_API_KEY": google_key
+    }
     
-    keys_to_save = {}
-    if openai_key: keys_to_save["OPENAI_API_KEY"] = openai_key
-    if deepgram_key: keys_to_save["DEEPGRAM_API_KEY"] = deepgram_key
-    if google_key: keys_to_save["GOOGLE_API_KEY"] = google_key
+    success_count = 0
+    async with httpx.AsyncClient() as client:
+        for k, v in keys_to_save.items():
+            if v and len(v) > 5:
+                try:
+                    await client.post(
+                        f"{VAULT_URL}/set",
+                        json={"key": k, "value": v},
+                        timeout=5.0
+                    )
+                    success_count += 1
+                except Exception as e:
+                    logger.error(f"Vault save error for {k}: {e}")
 
-    if not keys_to_save:
-        return RedirectResponse(url="/", status_code=303)
-
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{VAULT_URL}/v1/secret/data/mordomo/core/keys",
-                headers={"X-Vault-Token": VAULT_TOKEN},
-                json={"data": keys_to_save},
-                timeout=5.0
-            )
-            if resp.status_code in [200, 204]:
-                return RedirectResponse(url="/?success=vault_updated", status_code=303)
-            else:
-                logger.error(f"Vault save failed: {resp.text}")
-                return RedirectResponse(url="/?error=vault_fail", status_code=303)
-    except Exception as e:
-        logger.exception("Vault save exception")
-        return RedirectResponse(url="/?error=vault_timeout", status_code=303)
+    return JSONResponse({"status": "ok", "saved": success_count})
 
 @app.post("/add")
 async def add_resident(
-    request: Request,
     id: str = Form(None),
     name: str = Form(...),
-    description: str = Form(None),
+    description: str = Form(""),
     is_owner: bool = Form(False),
     whatsapp: str = Form(None),
-    aliases: str = Form(None),
+    aliases: str = Form(""),
     voice_profile_id: str = Form(None),
-    password: str = Form(None)
+    password: str = Form(None),
+    user: dict = Depends(get_current_user)
 ):
-    try:
-        # Convert aliases string to list
-        alias_list = [a.strip() for a in aliases.split(",")] if aliases else []
+    if not user:
+        return RedirectResponse(url="/", status_code=303)
         
-        # Hashing only if password is provided
+    try:
+        alias_list = [a.strip() for a in aliases.split(",")] if aliases else []
         hashed_pw = pwd_context.hash(password) if password else None
         
         async with db._pool_conn() as conn:
-            async with conn.transaction():
-                if id:
-                    # UPDATE EXISTING (Target Self/Edit)
-                    await conn.execute(
-                        """
-                        UPDATE people.pessoas 
-                        SET name = $1, description = $2, is_owner = $3, 
-                            whatsapp_number = $4, aliases = $5, voice_profile_id = $6,
-                            updated_at = NOW()
-                        WHERE id = $7
-                        """,
-                        name, description, is_owner, whatsapp, alias_list, voice_profile_id, id
-                    )
-                    if hashed_pw:
-                        await conn.execute("UPDATE people.pessoas SET password_hash = $1 WHERE id = $2", hashed_pw, id)
-                else:
-                    # CREATE NEW
-                    await conn.execute(
-                        """
-                        INSERT INTO people.pessoas (name, description, is_owner, whatsapp_number, aliases, voice_profile_id, password_hash)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7)
-                        """,
-                        name, description, is_owner, whatsapp, alias_list, voice_profile_id, hashed_pw
-                    )
+            if id:
+                await conn.execute("""
+                    UPDATE people.pessoas 
+                    SET name = $1, description = $2, is_owner = $3, 
+                        whatsapp_number = $4, aliases = $5, voice_profile_id = $6,
+                        updated_at = NOW()
+                    WHERE id = $7
+                """, name, description, is_owner, whatsapp, alias_list, voice_profile_id, id)
+                if hashed_pw:
+                    await conn.execute("UPDATE people.pessoas SET password_hash = $1 WHERE id = $2", hashed_pw, id)
+            else:
+                await conn.execute("""
+                    INSERT INTO people.pessoas (name, description, is_owner, whatsapp_number, aliases, voice_profile_id, password_hash)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                """, name, description, is_owner, whatsapp, alias_list, voice_profile_id, hashed_pw)
+                
         return RedirectResponse(url="/", status_code=303)
     except Exception as e:
         logger.error(f"Error adding resident: {e}")

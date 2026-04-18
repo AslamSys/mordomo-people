@@ -66,6 +66,14 @@
         
         <img src="/static/identity_wizard.png" class="wizard-img" alt="Identity Scan">
         
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+            <a href="/" class="btn btn-outline" style="padding: 10px 20px; font-size: 0.7rem; border-color: rgba(255,255,255,0.1);">⬅ VOLTAR AO HUB</a>
+            <div style="text-align: right;">
+                <span class="section-label" style="margin-bottom: 0;">ASLAM IDENTITY WIZARD</span>
+                <p style="font-size: 0.6rem; color: var(--text-dim);">Unificação de Perfil Neural</p>
+            </div>
+        </div>
+
         <div class="step-indicator">
             <div id="dot-1" class="step-dot active"></div>
             <div id="dot-2" class="step-dot"></div>
@@ -86,8 +94,12 @@
             <div id="step-1" class="wizard-step active">
                 {% if target == 'self' %}
                     <span class="section-label">PASSO 01 • IDENTIDADE</span>
-                    <h2 style="margin-bottom: 20px;">Confirmando sua Essência</h2>
+                    <h2 style="margin-bottom: 10px;">Confirmando sua Essência</h2>
                     <p style="color: var(--text-dim); margin-bottom: 30px;">Estamos ajustando seu perfil de Mestre: <b>{{ user.name }}</b>.</p>
+                    
+                    <label class="input-label">Especialidade / Descrição Técnica</label>
+                    <input type="text" name="description" class="input-field" placeholder="Ex: Administrador geral, Desenvolvedor..." value="{{ user.description or '' }}">
+
                     <label class="input-label">Apelidos / Aliases (Como o Aslam pode te chamar?)</label>
                     <input type="text" name="aliases" class="input-field" placeholder="Ex: Patrão, Chefe, Renan" value="{{ user.aliases|join(', ') if user.aliases else '' }}">
                 {% else %}
@@ -96,6 +108,9 @@
                     <p style="color: var(--text-dim); margin-bottom: 30px;">Defina o nome oficial e como o Aslam deve se referir a esta pessoa.</p>
                     <label class="input-label">Nome Completo</label>
                     <input type="text" name="name" class="input-field" placeholder="Ex: Vitorya Silva" required>
+                    
+                    <label class="input-label">Especialidade / Descrição</label>
+                    <input type="text" name="description" class="input-field" placeholder="Ex: Residente, Suporte..." required>
                 {% endif %}
                 
                 <div style="margin-top: 40px; display: flex; justify-content: flex-end;">
@@ -136,11 +151,8 @@
                     <div style="display: flex; gap: 15px; align-items: start;">
                         <span style="font-size: 1.5rem;">💡</span>
                         <div style="font-size: 0.75rem; line-height: 1.4; color: var(--text-dim);">
-                            <b style="color: #f59e0b; display: block; margin-bottom: 5px;">Não consegue gravar?</b>
-                            O microfone requer um <b>Contexto Seguro</b>. Se estiver usando o IP 192.168.0.110, faça o seguinte:<br>
-                            1. Copie: <code style="background: rgba(255,255,255,0.1); padding: 2px 5px; border-radius: 4px;">chrome://flags/#unsafely-treat-insecure-origin-as-secure</code><br>
-                            2. Ative e adicione <code style="background: rgba(255,255,255,0.1); padding: 2px 5px; border-radius: 4px;">http://192.168.0.110:8000</code> na lista.<br>
-                            3. Reinicie o navegador.
+                            <b style="color: #f59e0b; display: block; margin-bottom: 5px;">Dica de Ouro</b>
+                            Se estiver usando o IP 192.168.0.110 diretamente e o microfone não abrir, <b>ative a flag</b> de segurança do Chrome (instruções na aba de flags).
                         </div>
                     </div>
                 </div>
@@ -247,8 +259,8 @@
         const hiddenId = document.getElementById('voice_profile_id');
         
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            alert("⚠️ Erro de Segurança: O microfone só pode ser acessado via HTTPS ou localhost. Se estiver usando o IP, você precisa ativar a flag 'unsafely-treat-insecure-origin-as-secure' no seu navegador.");
-            status.innerHTML = '<span style="color: #ef4444">REQUER HTTPS / FLAG</span>';
+            showModal("Erro de Segurança", "O microfone só pode ser acessado via HTTPS ou com a flag do Chrome ativada para o IP local.", "🛡️");
+            status.innerHTML = '<span style="color: #ef4444">REQUER HTTPS</span>';
             return;
         }
 
@@ -279,13 +291,13 @@
                     if (result.voice_id) {
                         status.innerHTML = '<span style="color: #10b981">MAPA NEURAL GERADO ✓</span>';
                         hiddenId.value = result.voice_id;
-                        alert("Biometria capturada com sucesso! O Aslam agora conhece sua frequência vocal.");
+                        showModal("Biometria Capturada", "O Aslam agora conhece sua frequência vocal e ela foi indexada ao seu perfil.", "🧠");
                     } else {
                         throw new Error("Falha no processamento");
                     }
                 } catch (err) {
                     status.innerHTML = '<span style="color: #ef4444">ERRO NA CALIBRAÇÃO</span>';
-                    alert("Erro ao enviar áudio: " + err.message);
+                    showModal("Erro de Processamento", "Não foi possível calibrar sua voz no servidor. Verifique os logs do Audio Pipeline.", "❌");
                 }
             };
 
@@ -303,7 +315,7 @@
             }, 10000);
 
         } catch (err) {
-            alert("Erro ao acessar microfone: " + err.message);
+            showModal("Erro de Permissão", "Acesso ao microfone negado: " + err.message, "🔇");
             status.innerHTML = '<span style="color: #ef4444">MICROFONE BLOQUEADO</span>';
         }
     }
