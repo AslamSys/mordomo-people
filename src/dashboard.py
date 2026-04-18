@@ -114,9 +114,16 @@ async def index(request: Request, user: dict = Depends(get_current_user)):
         
         # Scenario 3: Logged in -> Show Dashboard
         async with db._pool_conn() as conn:
-            rows = await conn.fetch("SELECT id, name, description, is_owner FROM people.pessoas ORDER BY name")
+            rows = await conn.fetch("SELECT id, name, description, is_owner, whatsapp_number, voice_profile_id FROM people.pessoas ORDER BY name")
         residents = [dict(r) for r in rows]
         
+        # Check if CURRENT user setup is complete
+        current_res = next((r for r in residents if r["id"] == user["id"]), None)
+        setup_incomplete = False
+        if current_res and current_res["is_owner"]:
+            if not current_res.get("whatsapp_number") or not current_res.get("voice_profile_id"):
+                setup_incomplete = True
+
         system_status = await get_system_status(request)
         
         return templates.TemplateResponse(
@@ -126,7 +133,8 @@ async def index(request: Request, user: dict = Depends(get_current_user)):
                 "residents": residents, 
                 "admin_count": admin_count, 
                 "user": user, 
-                "system": system_status
+                "system": system_status,
+                "setup_incomplete": setup_incomplete
             }
         )
     except Exception as e:
@@ -160,38 +168,47 @@ async def logout(request: Request):
 @app.post("/add")
 async def add_resident(
     request: Request,
+    id: str = Form(None),
     name: str = Form(...),
     description: str = Form(None),
     is_owner: bool = Form(False),
     whatsapp: str = Form(None),
+    aliases: str = Form(None),
+    voice_profile_id: str = Form(None),
     password: str = Form(None)
 ):
-    """Handle resident creation (Wizard or Dashboard)."""
     try:
-        # Check if first admin
-        admin_count = await get_admin_count()
-        if admin_count == 0:
-            is_owner = True # First user is always owner
-            
-        # Hashing without truncation
+        # Convert aliases string to list
+        alias_list = [a.strip() for a in aliases.split(",")] if aliases else []
+        
+        # Hashing only if password is provided
         hashed_pw = pwd_context.hash(password) if password else None
         
         async with db._pool_conn() as conn:
             async with conn.transaction():
-                person_id = await conn.fetchval(
-                    "INSERT INTO people.pessoas (name, description, is_owner, password_hash) VALUES ($1, $2, $3, $4) RETURNING id",
-                    name, description, is_owner, hashed_pw
-                )
-                if whatsapp:
+                if id:
+                    # UPDATE EXISTING (Target Self/Edit)
                     await conn.execute(
-                        "INSERT INTO people.contatos (person_id, type, value_enc, label) VALUES ($1, 'whatsapp', $2, 'Principal')",
-                        person_id, db.encrypt(whatsapp)
+                        """
+                        UPDATE people.pessoas 
+                        SET name = $1, description = $2, is_owner = $3, 
+                            whatsapp_number = $4, aliases = $5, voice_profile_id = $6,
+                            updated_at = NOW()
+                        WHERE id = $7
+                        """,
+                        name, description, is_owner, whatsapp, alias_list, voice_profile_id, id
                     )
-        
-        # If was onboarding, log them in automatically
-        if admin_count == 0:
-            request.session["user"] = {"id": str(person_id), "name": name, "is_owner": True}
-            
+                    if hashed_pw:
+                        await conn.execute("UPDATE people.pessoas SET password_hash = $1 WHERE id = $2", hashed_pw, id)
+                else:
+                    # CREATE NEW
+                    await conn.execute(
+                        """
+                        INSERT INTO people.pessoas (name, description, is_owner, whatsapp_number, aliases, voice_profile_id, password_hash)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7)
+                        """,
+                        name, description, is_owner, whatsapp, alias_list, voice_profile_id, hashed_pw
+                    )
         return RedirectResponse(url="/", status_code=303)
     except Exception as e:
         logger.error(f"Error adding resident: {e}")
@@ -202,8 +219,22 @@ async def welcome_direct(request: Request):
     return templates.TemplateResponse(request=request, name="welcome.html", context={})
 
 @app.get("/wizard", response_class=HTMLResponse)
-async def resident_wizard(request: Request, user: dict = Depends(get_current_user)):
+async def resident_wizard(request: Request, target: str = "new", user: dict = Depends(get_current_user)):
     """The Step-by-Step Resident Onboarding."""
     if not user:
         return RedirectResponse(url="/", status_code=303)
-    return templates.TemplateResponse(request=request, name="wizard.html", context={"user": user})
+    
+    # Fetch full user data from DB if target=self
+    full_user = user
+    if target == "self":
+        async with db._pool_conn() as conn:
+            row = await conn.fetchrow("SELECT id, name, aliases, whatsapp_number, voice_profile_id FROM people.pessoas WHERE id = $1", user["id"])
+            if row:
+                full_user = dict(row)
+                full_user["id"] = str(full_user["id"])
+
+    return templates.TemplateResponse(
+        request=request, 
+        name="wizard.html", 
+        context={"user": full_user, "target": target}
+    )

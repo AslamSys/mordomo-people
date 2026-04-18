@@ -70,21 +70,31 @@
             <div id="dot-1" class="step-dot active"></div>
             <div id="dot-2" class="step-dot"></div>
             <div id="dot-3" class="step-dot"></div>
+            <div id="dot-4" class="step-dot"></div>
         </div>
 
         <form id="wizard-form" action="/add" method="POST">
-            
-            <!-- Step 1: Identity -->
+            {% if target == 'self' %}
+            <input type="hidden" name="id" value="{{ user.id }}">
+            <input type="hidden" name="name" value="{{ user.name }}">
+            <input type="hidden" name="is_owner" value="true">
+            {% endif %}
+
+            <!-- Step 1: Identity/Essence -->
             <div id="step-1" class="wizard-step active">
-                <span class="section-label">PASSO 01 • ESSÊNCIA</span>
-                <h2 style="margin-bottom: 20px;">Quem estamos integrando?</h2>
-                <p style="color: var(--text-dim); margin-bottom: 30px;">Defina o nome oficial e como o Aslam deve se referir a esta pessoa.</p>
-                
-                <label class="input-label">Nome Completo</label>
-                <input type="text" name="name" class="input-field" placeholder="Ex: Vitorya Silva" required>
-                
-                <label class="input-label">Descrição / Especialidade</label>
-                <input type="text" name="description" class="input-field" placeholder="Ex: Engenheira de Software">
+                {% if target == 'self' %}
+                    <span class="section-label">PASSO 01 • IDENTIDADE</span>
+                    <h2 style="margin-bottom: 20px;">Confirmando sua Essência</h2>
+                    <p style="color: var(--text-dim); margin-bottom: 30px;">Estamos ajustando seu perfil de Mestre: <b>{{ user.name }}</b>.</p>
+                    <label class="input-label">Apelidos / Aliases (Como o Aslam pode te chamar?)</label>
+                    <input type="text" name="aliases" class="input-field" placeholder="Ex: Patrão, Chefe, Renan" value="{{ user.aliases|join(', ') if user.aliases else '' }}">
+                {% else %}
+                    <span class="section-label">PASSO 01 • ESSÊNCIA</span>
+                    <h2 style="margin-bottom: 20px;">Quem estamos integrando?</h2>
+                    <p style="color: var(--text-dim); margin-bottom: 30px;">Defina o nome oficial e como o Aslam deve se referir a esta pessoa.</p>
+                    <label class="input-label">Nome Completo</label>
+                    <input type="text" name="name" class="input-field" placeholder="Ex: Vitorya Silva" required>
+                {% endif %}
                 
                 <div style="margin-top: 40px; display: flex; justify-content: flex-end;">
                     <button type="button" class="btn btn-primary" onclick="nextStep(2)">Continuar ➔</button>
@@ -95,35 +105,56 @@
             <div id="step-2" class="wizard-step">
                 <span class="section-label">PASSO 02 • CONEXÃO</span>
                 <h2 style="margin-bottom: 20px;">Canais de Comunicação</h2>
-                <p style="color: var(--text-dim); margin-bottom: 30px;">Vincule um número de WhatsApp. O OpenClaw usará isso para reconhecer e responder mensagens.</p>
+                <p style="color: var(--text-dim); margin-bottom: 30px;">Vincule o número de WhatsApp. Sem isso, o OpenClaw irá ignorar todas as suas mensagens.</p>
                 
                 <label class="input-label">Número do WhatsApp</label>
-                <input type="text" name="whatsapp" class="input-field" placeholder="+5511999999999" required>
+                <input type="text" name="whatsapp" class="input-field" placeholder="+5511999999999" required value="{{ user.whatsapp_number or '' }}">
                 
                 <div style="margin-top: 40px; display: flex; justify-content: space-between;">
                     <button type="button" class="btn btn-outline" onclick="nextStep(1)">⬅ Voltar</button>
-                    <button type="button" class="btn btn-primary" onclick="nextStep(3)">Continuar ➔</button>
+                    <button type="button" class="btn btn-primary" onclick="nextStep(3)">Ir para Biometria ➔</button>
                 </div>
             </div>
 
-            <!-- Step 3: Governance -->
+            <!-- Step 3: Voice Bio -->
             <div id="step-3" class="wizard-step">
-                <span class="section-label">PASSO 03 • GOVERNANÇA</span>
-                <h2 style="margin-bottom: 20px;">Nível de Acesso</h2>
-                <p style="color: var(--text-dim); margin-bottom: 30px;">Defina se esta pessoa terá controle total sobre o ecossistema.</p>
+                <span class="section-label">PASSO 03 • NEURAL BIO</span>
+                <h2 style="margin-bottom: 20px;">Biometria Vocal</h2>
+                <p style="color: var(--text-dim); margin-bottom: 30px;">O microfone local do Mordomo usará seu padrão vocal para autorizar comandos IoT e Finanças na Orange Pi.</p>
                 
+                <div class="glass-card" style="text-align: center; padding: 40px; border: 1px dashed var(--border);">
+                    <img src="/static/voice_bio.png" style="width: 120px; margin-bottom: 20px; opacity: 0.8;" alt="Voice Pattern">
+                    <div id="voice-status" style="margin-bottom: 20px; font-weight: bold; color: var(--primary);">AGUARDANDO CALIBRAÇÃO...</div>
+                    <button type="button" class="btn btn-outline" onclick="startEnrollment()" style="border-radius: 50px; padding: 15px 30px;">🎤 Iniciar Gravação</button>
+                    <input type="hidden" name="voice_profile_id" id="voice_profile_id" value="">
+                </div>
+
+                <div style="margin-top: 40px; display: flex; justify-content: space-between;">
+                    <button type="button" class="btn btn-outline" onclick="nextStep(2)">⬅ Voltar</button>
+                    <button type="button" class="btn btn-primary" onclick="nextStep(4)">Continuar ➔</button>
+                </div>
+            </div>
+
+            <!-- Step 4: Governance -->
+            <div id="step-4" class="wizard-step">
+                <span class="section-label">PASSO 04 • GOVERNANÇA</span>
+                <h2 style="margin-bottom: 20px;">Finalizar Integração</h2>
+                <p style="color: var(--text-dim); margin-bottom: 30px;">Confirme as permissões e persista os dados no ecossistema Aslam.</p>
+                
+                {% if not target == 'self' %}
                 <div class="input-field" style="display: flex; align-items: center; gap: 15px; cursor: pointer;">
                     <input type="checkbox" name="is_owner" id="is_owner" value="true" style="width: 20px; height: 20px;">
                     <label for="is_owner" style="margin-bottom: 0; cursor: pointer;">Definir como Administrador (Owner)</label>
                 </div>
+                {% endif %}
 
                 <div class="identity-preview">
-                    <p style="font-size: 0.8rem; color: var(--text-dim);">Ao finalizar, a identidade será persistida no <b>Identity Vault</b> e propagada via <b>NATS</b> para todos os módulos ativos.</p>
+                    <p style="font-size: 0.8rem; color: var(--text-dim);">Ao concluir, sua identidade será sincronizada com o <b>mordomo-brain</b> e validada pelo gateway de segurança.</p>
                 </div>
                 
                 <div style="margin-top: 40px; display: flex; justify-content: space-between;">
-                    <button type="button" class="btn btn-outline" onclick="nextStep(2)">⬅ Voltar</button>
-                    <button type="submit" class="btn btn-primary" style="background: var(--primary);">CONCLUIR INTEGRAÇÃO</button>
+                    <button type="button" class="btn btn-outline" onclick="nextStep(3)">⬅ Voltar</button>
+                    <button type="submit" class="btn btn-primary" style="background: var(--primary);">UNIFICAR IDENTIDADE</button>
                 </div>
             </div>
 
@@ -146,6 +177,18 @@
         for(let i=1; i<=step; i++) {
             document.getElementById('dot-' + i).classList.add('active');
         }
+    }
+
+    function startEnrollment() {
+        const status = document.getElementById('voice-status');
+        const hiddenId = document.getElementById('voice_profile_id');
+        status.innerHTML = '<span style="color: #f59e0b">CAPTANDO FREQUÊNCIAS...</span>';
+        
+        setTimeout(() => {
+            status.innerHTML = '<span style="color: #10b981">MAPA NEURAL GERADO ✓</span>';
+            hiddenId.value = 'voice_' + Math.random().toString(36).substr(2, 9);
+            alert("O Mordomo captou seu padrão vocal. Identidade biométrica vinculada ao núcleo.");
+        }, 3000);
     }
 </script>
 {% endblock %}

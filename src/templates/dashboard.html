@@ -92,6 +92,18 @@
         <!-- Main Workspace -->
         <main class="main-content">
             
+            {% if setup_incomplete %}
+            <div class="glass-card reveal" style="border: 1px solid #f59e0b22; background: rgba(245, 158, 11, 0.03); margin-bottom: 40px; border-left: 4px solid #f59e0b;">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px;">
+                    <div>
+                        <h3 style="color: #f59e0b; margin-bottom: 10px;">⚠️ Setup Master Incompleto</h3>
+                        <p style="font-size: 0.9rem; color: var(--text-dim);">Para que o Aslam te reconheça no WhatsApp e pelo microfone local, precisamos mapear seus canais de conexão e sua biometria vocal.</p>
+                    </div>
+                    <a href="/wizard?target=self" class="btn btn-primary" style="background: #f59e0b; border: 0; color: black; font-weight: bold;">COMPLETAR MEU SETUP</a>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Section: Nucleus (Technical Deep Dive) -->
             <section id="sect-nucleus" class="content-section active">
                 <span class="section-label">OPERATIONAL NUCLEUS</span>
