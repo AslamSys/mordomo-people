@@ -87,6 +87,12 @@
             <div class="nav-item" onclick="switchTab('vault', this)"><span>🔐</span> Identity Vault</div>
             <hr style="border: 0; border-top: 1px solid var(--border); margin: 15px 0;">
             <a href="/logout" class="nav-item" style="color: #ef4444; text-decoration: none;"><span>🚪</span> Encerrar Sessão</a>
+            
+            <div style="margin-top: 30px; padding: 15px; border-radius: 12px; background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.1);">
+                <div style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; color: var(--primary-light); margin-bottom: 12px; font-weight: bold;">Configurações</div>
+                <a href="/wizard?mode=persona&target=self" style="display: block; font-size: 0.75rem; color: var(--text-dim); text-decoration: none; margin-bottom: 8px; transition: 0.2s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='var(--text-dim)'">👤 Editar Meu Perfil</a>
+                <a href="/wizard?mode=core&target=system" style="display: block; font-size: 0.75rem; color: var(--text-dim); text-decoration: none; transition: 0.2s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='var(--text-dim)'">🛠️ Reconfigurar Núcleo</a>
+            </div>
         </aside>
 
         <!-- Main Workspace -->
