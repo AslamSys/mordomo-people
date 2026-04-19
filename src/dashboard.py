@@ -202,17 +202,33 @@ async def logout(request: Request):
 async def save_vault_keys(
     request: Request,
     groq_key: str = Form(None),
-    bifrost_key: str = Form(None),
     user: dict = Depends(get_current_user)
 ):
     if not user or not user.get("is_owner"):
         return JSONResponse({"error": "unauthorized"}, status_code=403)
         
-    # Mapping for the Core Wizard essentials
-    keys_to_save = {
-        "GROQ_API_KEY": groq_key,
-        "BIFROST_API_KEY": bifrost_key
-    }
+    import secrets
+    import string
+    
+    # Check existing keys first
+    existing_keys = {}
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(f"{VAULT_URL}/get_all", timeout=2.0)
+            if resp.status_code == 200:
+                existing_keys = resp.json()
+        except: pass
+
+    # Prepare keys_to_save
+    keys_to_save = {}
+    if groq_key:
+        keys_to_save["GROQ_API_KEY"] = groq_key
+    
+    # AUTO-GENERATE BIFROST KEY IF MISSING
+    if not existing_keys.get("BIFROST_API_KEY"):
+        alphabet = string.ascii_letters + string.digits
+        new_key = "bt_" + ''.join(secrets.choice(alphabet) for _ in range(32))
+        keys_to_save["BIFROST_API_KEY"] = new_key
     
     success_count = 0
     async with httpx.AsyncClient() as client:
@@ -228,7 +244,7 @@ async def save_vault_keys(
                 except Exception as e:
                     logger.error(f"Vault save error for {k}: {e}")
 
-    return JSONResponse({"status": "ok", "saved": success_count})
+    return JSONResponse({"status": "ok", "saved": success_count, "bifrost_generated": "BIFROST_API_KEY" in keys_to_save})
 
 @app.post("/add")
 async def add_resident(

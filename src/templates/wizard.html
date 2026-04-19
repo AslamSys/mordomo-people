@@ -190,33 +190,21 @@
                 
                 <div class="setup-list">
                     <!-- Mandatory: Groq for Brain -->
-                    <div class="glass-card" style="padding: 20px; margin-bottom: 15px; border-left: 4px solid var(--primary);">
+                    <div class="glass-card" style="padding: 20px; border-left: 4px solid var(--primary);">
                         <label class="input-label" style="display: flex; justify-content: space-between;">
-                            GROQ_API_KEY (Braço do Brain)
+                            GROQ_API_KEY (Combustível Neural)
                             <span style="font-size: 0.7rem; color: {% if vault.GROQ_API_KEY == 'ready' %}var(--primary){% else %}#ef4444{% endif %};">
                                 {{ (vault.GROQ_API_KEY or 'missing')|upper }}
                             </span>
                         </label>
-                        <p style="font-size: 0.7rem; color: var(--text-dim); margin-bottom: 10px;">Obrigatória para o processamento de redundância do Brain.</p>
+                        <p style="font-size: 0.7rem; color: var(--text-dim); margin-bottom: 10px;">Chave obrigatória para que o Brain consiga orquestrar as intenções.</p>
                         <input type="password" name="groq_key" class="input-field" placeholder="gsk_..." required>
-                    </div>
-
-                    <!-- Mandatory: Bifrost/Gateway Key -->
-                    <div class="glass-card" style="padding: 20px; border-left: 4px solid #3b82f6;">
-                        <label class="input-label" style="display: flex; justify-content: space-between;">
-                            BIFROST_GATEWAY_KEY (Chave de Infra)
-                            <span style="font-size: 0.7rem; color: {% if vault.BIFROST_API_KEY == 'ready' %}#3b82f6{% else %}#ef4444{% endif %};">
-                                {{ (vault.BIFROST_API_KEY or 'missing')|upper }}
-                            </span>
-                        </label>
-                        <p style="font-size: 0.7rem; color: var(--text-dim); margin-bottom: 10px;">Chave de autorização para o Gateway BIFROST.</p>
-                        <input type="password" name="bifrost_key" class="input-field" placeholder="bt_..." required>
                     </div>
                 </div>
 
                 <div class="glass-card" style="margin-top: 20px; padding: 15px; background: rgba(var(--primary-rgb), 0.05); border: 1px solid rgba(var(--primary-rgb), 0.1);">
                     <p style="font-size: 0.75rem; color: var(--text-dim); text-align: center;">
-                        <b>Nota:</b> Outras APIs (OpenAI, Gemini, Deepgram) serão configuradas individualmente em suas páginas de gerenciamento.
+                        🛡️ <b>Segurança Automatizada:</b> A chave mestra do Gateway (Bifrost) será gerada automaticamente e sincronizada com a Bóveda.
                     </p>
                 </div>
 
