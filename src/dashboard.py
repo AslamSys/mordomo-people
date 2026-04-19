@@ -164,5 +164,5 @@ async def debug_audio_ws(websocket: WebSocket):
 
 @app.post("/debug/audio/simulate")
 async def simulate_audio_event(text: str = Form(...), user: dict = Depends(get_current_user)):
-    await nc.publish("mordomo.brain.request", json.dumps({"text": text, "user_id": user["id"]}).encode())
+    await nc.publish("mordomo.orchestrator.request", json.dumps({"text": text, "user_id": user["id"]}).encode())
     return {"status": "dispatched"}

@@ -160,24 +160,32 @@
 
     function processNeuralMessage(topic, payload) {
         // Reset effects if they start a new cycle
-        if (topic.includes('vad') && payload.state === 'started') {
-            document.querySelectorAll('.pipeline-card').forEach(c => c.classList.remove('active'));
+        if (topic.includes('verified') || (topic.includes('speech') && !topic.includes('tts'))) {
+            document.querySelectorAll('.pipeline-card').forEach(c => {
+                c.classList.remove('active');
+                if (c.id === 'card-vad') c.querySelector('div:not(.status-light)').innerText = '🔇 Silêncio';
+                if (c.id === 'card-asr') c.querySelector('div:not(.status-light)').innerText = '...';
+                if (c.id === 'card-brain') c.querySelector('div:not(.status-light)').innerText = 'Pensando...';
+                if (c.id === 'card-tts') c.querySelector('div:not(.status-light)').innerText = 'Sintetizando...';
+            });
         }
 
-        if (topic.includes('vad')) {
-            activateCard('vad', payload.state === 'started' ? '🗣️ Capturando Áudio...' : '🔇 Silêncio');
-        } else if (topic.includes('asr')) {
-            activateCard('asr', payload.text || 'Processando transcrição...');
-        } else if (topic.includes('brain')) {
-            activateCard('brain', payload.text || payload.response || 'Gerando raciocínio...');
-        } else if (topic.includes('tts')) {
-            activateCard('tts', payload.state === 'speaking' ? '📢 Reproduzindo Resposta...' : '✅ Finalizado');
+        if (topic.includes('verified')) {
+            activateCard('vad', '👤 Usuário Identificado!');
+        } else if (topic.includes('speech.transcribed')) {
+            activateCard('asr', payload.text || 'Transcrição capturada');
+            activateCard('vad', '🗣️ Fala Detectada');
+        } else if (topic.includes('brain.action')) {
+            activateCard('brain', payload.action || payload.text || 'Executando comando...');
+        } else if (topic.includes('tts.status')) {
+            const isSpeaking = payload.state === 'started' || !!payload.text;
+            activateCard('tts', isSpeaking ? '📢 Falando: ' + (payload.text || '...') : '✅ Resposta concluída');
         }
     }
 
     function activateCard(id, text) {
         const card = document.getElementById('card-' + id);
-        const val = document.getElementById('val-' + id);
+        const val = card.querySelector('div:not(.status-light)');
         card.classList.add('active');
         val.innerText = text;
     }
@@ -189,6 +197,7 @@
         const formData = new FormData();
         formData.append('text', text);
         
+        // Use the simulation endpoint which publishes to mordomo.orchestrator.request
         await fetch('/debug/audio/simulate', {
             method: 'POST',
             body: formData
