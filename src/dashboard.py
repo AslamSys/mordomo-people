@@ -209,17 +209,19 @@ async def index(request: Request, user: dict = Depends(get_current_user)):
         if not user:
             return templates.TemplateResponse(request=request, name="welcome.html", context={"login_mode": True})
         
-        # Scenario 3: Logged in -> Show Dashboard
+        # Scenario 3: Logged in -> Verify profile completeness
         async with db._pool_conn() as conn:
             rows = await conn.fetch("SELECT id, name, description, is_owner, whatsapp_number, voice_profile_id FROM people.pessoas ORDER BY name")
         residents = [dict(r) for r in rows]
         
-        # Check if CURRENT user setup is complete
         current_res = next((r for r in residents if r["id"] == user["id"]), None)
-        setup_incomplete = False
-        if current_res and current_res["is_owner"]:
-            if not current_res.get("whatsapp_number") or not current_res.get("voice_profile_id"):
-                setup_incomplete = True
+        
+        # MANDATORY PROFILE CHECK
+        if current_res:
+            is_incomplete = not current_res.get("whatsapp_number") or not current_res.get("voice_profile_id") or not current_res.get("description")
+            if is_incomplete:
+                logger.info(f"Redirecting {user['name']} to Persona Wizard (Incomplete Profile)")
+                return RedirectResponse(url="/wizard?mode=persona&target=self", status_code=status.HTTP_303_SEE_OTHER)
 
         system_status = await get_system_status(request)
         vault_health = await get_vault_health()
@@ -229,11 +231,10 @@ async def index(request: Request, user: dict = Depends(get_current_user)):
             name="dashboard.html", 
             context={
                 "residents": residents, 
-                "admin_count": admin_count, 
-                "user": user, 
-                "system": system_status,
+                "system": system_status, 
                 "vault": vault_health,
-                "setup_incomplete": setup_incomplete
+                "user": user,
+                "setup_incomplete": False # If we are here, it is complete
             }
         )
     except Exception as e:
