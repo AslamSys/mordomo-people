@@ -92,15 +92,15 @@
         <!-- Main Workspace -->
         <main class="main-content">
             
-            {% set core_missing = vault.GROQ_API_KEY == 'missing' or vault.BIFROST_API_KEY == 'missing' %}
+            {% set core_missing = vault.GROQ_API_KEY == 'missing' %}
             {% if setup_incomplete or core_missing %}
             <div class="glass-card reveal" style="border: 1px solid #f59e0b22; background: rgba(245, 158, 11, 0.03); margin-bottom: 40px; border-left: 4px solid #f59e0b;">
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px;">
                     <div>
-                        <h3 style="color: #f59e0b; margin-bottom: 10px;">⚠️ Configuração do Núcleo Requerida</h3>
+                        <h3 style="color: #f59e0b; margin-bottom: 10px;">⚠️ Configuração do Sistema Requerida</h3>
                         <p style="font-size: 0.9rem; color: var(--text-dim);">
                             {% if setup_incomplete %}• Perfil de Mestre (WhatsApp e Voz) incompleto.<br>{% endif %}
-                            {% if core_missing %}• Infraestrutura básica (Groq/Gateway) não provisionada.{% endif %}
+                            {% if core_missing %}• Chave de Redundância Neural (Groq) não provisionada.{% endif %}
                         </p>
                     </div>
                     <div style="display: flex; gap: 10px;">

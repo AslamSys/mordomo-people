@@ -16,10 +16,20 @@ pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
 
 app = FastAPI(title="Mordomo HQ | Management Portal")
 
-# Add Session Middleware (Secret should ideally come from Vault)
-# For now using the MASTER_KEY or a default.
-SESSION_SECRET = os.getenv("SESSION_SECRET", "super-secret-mordomo-key")
-app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)
+# Add Session Middleware (Secret is fetched from Vault or ENV)
+VAULT_URL = os.environ.get("VAULT_URL", "http://mordomo-vault:8200")
+
+def get_initial_session_secret():
+    # Attempt a quick sync fetch for session secret to avoid reset on restart
+    try:
+        import requests
+        resp = requests.get(f"{VAULT_URL}/get_all", timeout=1.0)
+        if resp.status_code == 200:
+            return resp.json().get("SESSION_SECRET", "super-secret-mordomo-key")
+    except: pass
+    return os.getenv("SESSION_SECRET", "super-secret-mordomo-key")
+
+app.add_middleware(SessionMiddleware, secret_key=get_initial_session_secret())
 
 # Setup templates
 templates = Jinja2Templates(directory="src/templates")
@@ -37,23 +47,19 @@ def get_current_user(request: Request):
         return None
     return user
 
-from src.config import VAULT_URL, VAULT_TOKEN
-
 async def get_vault_health():
     """Check if essential infrastructure keys exist in the Vault."""
     essential_keys = ["GROQ_API_KEY", "BIFROST_API_KEY", "DATABASE_URL", "PEOPLE_MASTER_KEY"]
     health = {key: "missing" for key in essential_keys}
     
-    if not VAULT_TOKEN:
-        return health
-
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(f"{VAULT_URL}/get_all", timeout=2.0)
             if resp.status_code == 200:
                 data = resp.json()
                 for key in essential_keys:
-                    if data.get(key) and len(data.get(key)) > 5:
+                    # Mark as ready if in Vault OR in current ENV (transition phase)
+                    if (data.get(key) and len(data.get(key)) > 5) or os.environ.get(key):
                         health[key] = "ready"
     except Exception as e:
         logger.error(f"Vault health check failed: {e}")
@@ -62,7 +68,7 @@ async def get_vault_health():
 
 async def seed_vault():
     """Seed the Vault with essential data from current ENVs (Initial Migration)."""
-    from src.config import DATABASE_URL, PEOPLE_MASTER_KEY
+    from src.config import DATABASE_URL, PEOPLE_MASTER_KEY_HEX
     import secrets
     import string
 
@@ -75,7 +81,7 @@ async def seed_vault():
         },
         {
             "key": "PEOPLE_MASTER_KEY", 
-            "value": PEOPLE_MASTER_KEY, 
+            "value": PEOPLE_MASTER_KEY_HEX, 
             "desc": "AES-256 Master Key for Resident Data Encryption"
         }
     ]
@@ -95,17 +101,32 @@ async def seed_vault():
                 logger.info(f"Seeding {k} to Vault...")
                 await client.post(f"{VAULT_URL}/set", json={"key": k, "value": v, "description": d})
 
-        # 3. Auto-generate BIFROST if missing
+        # 3. Auto-generate Infrastructure Keys if missing (RANDOM DNA)
+        alphabet = string.ascii_letters + string.digits
+        
+        # BIFROST
         if not current.get("BIFROST_API_KEY"):
-            alphabet = string.ascii_letters + string.digits
             new_key = "bt_" + ''.join(secrets.choice(alphabet) for _ in range(32))
-            logger.info("Auto-generating BIFROST_API_KEY seed...")
+            logger.info("Auto-generating UNIQUE BIFROST_API_KEY...")
             await client.post(
                 f"{VAULT_URL}/set", 
                 json={
                     "key": "BIFROST_API_KEY", 
                     "value": new_key, 
                     "description": "Internal Master Key for LLM Gateway (Bifrost) authentication"
+                }
+            )
+
+        # SESSION SECRET
+        if not current.get("SESSION_SECRET"):
+            new_key = ''.join(secrets.choice(alphabet) for _ in range(32))
+            logger.info("Auto-generating UNIQUE SESSION_SECRET...")
+            await client.post(
+                f"{VAULT_URL}/set", 
+                json={
+                    "key": "SESSION_SECRET", 
+                    "value": new_key, 
+                    "description": "System-wide Session Encryption Secret (CSRF Protection)"
                 }
             )
 
