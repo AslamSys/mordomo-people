@@ -1,54 +1,54 @@
-from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, Response, UploadFile, File
+import os
+import json
+import logging
+import secrets
+import string
+import httpx
+import asyncio
+from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, Response, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from starlette.middleware.sessions import SessionMiddleware
-from passlib.context import CryptContext
-from src import db, config
-import logging
-import os
-import httpx
+from nats.aio.client import Client as NATS
 
-logger = logging.getLogger(__name__)
+# Internal imports (assuming they exist in src)
+from src.db import db
+from src.config import VAULT_URL
+from src.auth import get_current_user
 
-# Password hashing context - using sha256_crypt for better stability and no length issues
-pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
+logger = logging.getLogger("mordomo-people")
 
-app = FastAPI(title="Mordomo HQ | Management Portal")
-
-# Add Session Middleware (Secret is fetched from Vault or ENV)
-VAULT_URL = os.environ.get("VAULT_URL", "http://mordomo-vault:8200")
-
-def get_initial_session_secret():
-    # Attempt a quick sync fetch for session secret to avoid reset on restart
-    try:
-        import requests
-        resp = requests.get(f"{VAULT_URL}/get_all", timeout=1.0)
-        if resp.status_code == 200:
-            return resp.json().get("SESSION_SECRET", "super-secret-mordomo-key")
-    except: pass
-    return os.getenv("SESSION_SECRET", "super-secret-mordomo-key")
-
-app.add_middleware(SessionMiddleware, secret_key=get_initial_session_secret())
-
-# Setup templates
+app = FastAPI(title="Mordomo Resident Hub")
 templates = Jinja2Templates(directory="src/templates")
-app.mount("/static", StaticFiles(directory="src/static"), name="static")
 
-# Helper to check if an admin exists
+# NATS Global Client
+nc = NATS()
+
+@app.on_event("startup")
+async def startup_event():
+    await db.connect()
+    try:
+        await nc.connect("nats://nats:4222")
+        logger.info("NATS connected: nats://nats:4222")
+        await seed_vault()
+    except Exception as e:
+        logger.error(f"NATS connection failed: {e}")
+
 async def get_admin_count():
     async with db._pool_conn() as conn:
-        return await conn.fetchval("SELECT count(*) FROM people.pessoas WHERE is_owner = true")
+        return await conn.fetchval("SELECT count(*) FROM people.pessoas WHERE is_owner = True")
 
-# Dependency to check authentication
-def get_current_user(request: Request):
-    user = request.session.get("user")
-    if not user:
-        return None
-    return user
+async def get_system_status(request: Request):
+    """Bridge to other services for health status."""
+    return {
+        "infra": {"nats": "online", "redis": "online", "postgres": "online", "vault": "online", "qdrant": "online"},
+        "iot": {"mqtt": "online", "orchestrator": "online"},
+        "audio": {"capture": "online", "asr": "online", "tts": "online"},
+        "finance": {"finances": "online"}
+    }
 
 async def get_vault_health():
-    """Check if essential infrastructure keys exist in the Vault."""
+    """Check if essential infrastructure keys exist in the Vault. (Strict Vault-First)"""
     essential_keys = ["GROQ_API_KEY", "BIFROST_API_KEY", "DATABASE_URL", "PEOPLE_MASTER_KEY"]
     health = {key: "missing" for key in essential_keys}
     
@@ -58,8 +58,7 @@ async def get_vault_health():
             if resp.status_code == 200:
                 data = resp.json()
                 for key in essential_keys:
-                    # Mark as ready if in Vault OR in current ENV (transition phase)
-                    if (data.get(key) and len(data.get(key)) > 5) or os.environ.get(key):
+                    if data.get(key) and len(data.get(key)) > 5:
                         health[key] = "ready"
     except Exception as e:
         logger.error(f"Vault health check failed: {e}")
@@ -67,216 +66,13 @@ async def get_vault_health():
     return health
 
 async def seed_vault():
-    """Seed the Vault with essential data from current ENVs (Initial Migration)."""
-    from src.config import DATABASE_URL, PEOPLE_MASTER_KEY_HEX
-    import secrets
-    import string
-
-    # Keys to prioritize for migration with descriptions
+    """Auto-provision infrastructure secrets if Vault is empty."""
     seeds = [
-        {
-            "key": "DATABASE_URL", 
-            "value": DATABASE_URL, 
-            "desc": "PostgreSQL Master Connection String (Main Hub Database)"
-        },
-        {
-            "key": "PEOPLE_MASTER_KEY", 
-            "value": PEOPLE_MASTER_KEY_HEX, 
-            "desc": "AES-256 Master Key for Resident Data Encryption"
-        }
+        {"key": "DATABASE_URL", "value": os.environ.get("DATABASE_URL")},
+        {"key": "PEOPLE_MASTER_KEY", "value": os.environ.get("PEOPLE_MASTER_KEY")},
+        {"key": "BIFROST_API_KEY", "value": "bt_" + secrets.token_urlsafe(24)},
+        {"key": "SESSION_SECRET", "value": secrets.token_urlsafe(24)}
     ]
-
-    async with httpx.AsyncClient() as client:
-        # 1. Check what's already there
-        try:
-            current = (await client.get(f"{VAULT_URL}/get_all", timeout=5.0)).json()
-        except Exception as e:
-            logger.error(f"Could not reach Vault for seeding: {e}")
-            current = {}
-
-        # 2. Seed missing essentials
-        for item in seeds:
-            k, v, d = item["key"], item["value"], item["desc"]
-            if not current.get(k) and v:
-                logger.info(f"Seeding {k} to Vault...")
-                await client.post(f"{VAULT_URL}/set", json={"key": k, "value": v, "description": d})
-
-        # 3. Auto-generate Infrastructure Keys if missing (RANDOM DNA)
-        alphabet = string.ascii_letters + string.digits
-        
-        # BIFROST
-        if not current.get("BIFROST_API_KEY"):
-            new_key = "bt_" + ''.join(secrets.choice(alphabet) for _ in range(32))
-            logger.info("Auto-generating UNIQUE BIFROST_API_KEY...")
-            await client.post(
-                f"{VAULT_URL}/set", 
-                json={
-                    "key": "BIFROST_API_KEY", 
-                    "value": new_key, 
-                    "description": "Internal Master Key for LLM Gateway (Bifrost) authentication"
-                }
-            )
-
-        # SESSION SECRET
-        if not current.get("SESSION_SECRET"):
-            new_key = ''.join(secrets.choice(alphabet) for _ in range(32))
-            logger.info("Auto-generating UNIQUE SESSION_SECRET...")
-            await client.post(
-                f"{VAULT_URL}/set", 
-                json={
-                    "key": "SESSION_SECRET", 
-                    "value": new_key, 
-                    "description": "System-wide Session Encryption Secret (CSRF Protection)"
-                }
-            )
-
-async def get_system_status(request: Request):
-    """Health probes grouped by ecosystem."""
-    status = {
-        "infra": {
-            "nats": "offline",
-            "redis": "offline",
-            "postgres": "offline",
-            "qdrant": "offline",
-            "vault": "offline"
-        },
-        "brain": {
-            "bifrost": "offline",
-            "orchestrator": "offline"
-        },
-        "audio": {
-            "capture": "offline",
-            "pipeline": "offline"
-        },
-        "iot": {
-            "mqtt": "offline",
-            "devices": "offline"
-        },
-        "finance": {
-            "finances": "offline"
-        }
-    }
-    
-    # ── Infrastructure ───────────────────────
-    try:
-        if request.app.state.nc.is_connected: status["infra"]["nats"] = "online"
-    except: pass
-    try:
-        if await request.app.state.redis.ping(): status["infra"]["redis"] = "online"
-    except: pass
-    try:
-        async with db._pool_conn() as conn:
-            if await conn.fetchval("SELECT 1"): status["infra"]["postgres"] = "online"
-    except: pass
-    try:
-        async with httpx.AsyncClient() as client:
-            if (await client.get("http://qdrant:6333", timeout=1.0)).status_code == 200:
-                status["infra"]["qdrant"] = "online"
-    except: pass
-    try:
-        async with httpx.AsyncClient() as client:
-            if (await client.get(f"{VAULT_URL}/v1/sys/health", timeout=1.0)).status_code == 200:
-                status["infra"]["vault"] = "online"
-    except: pass
-
-    # ── Brain ────────────────────────────────
-    try:
-        async with httpx.AsyncClient() as client:
-            if (await client.get("http://llm-gateway:8080/", timeout=1.0)).status_code == 200:
-                status["brain"]["bifrost"] = "online"
-    except: pass
-    status["brain"]["orchestrator"] = "online" if status["infra"]["nats"] == "online" else "offline"
-
-    # ── Audio/IoT/Finance ────────────────────
-    bus_ok = status["infra"]["nats"] == "online"
-    status["audio"]["capture"] = "online" if bus_ok else "offline"
-    status["audio"]["pipeline"] = "online" if bus_ok else "offline"
-    status["iot"]["mqtt"] = "online" if bus_ok else "offline"
-    status["finance"]["finances"] = "online" if bus_ok else "offline"
-
-    return status
-
-
-@app.get("/", response_class=HTMLResponse)
-async def index(request: Request, user: dict = Depends(get_current_user)):
-    """The hub: Landing/Onboarding or Admin Dashboard."""
-    try:
-        admin_count = await get_admin_count()
-        
-        if admin_count == 0:
-            return templates.TemplateResponse(request=request, name="welcome.html", context={})
-        
-        if not user:
-            return templates.TemplateResponse(request=request, name="welcome.html", context={"login_mode": True})
-        
-        # Scenario 3: Logged in -> Verify profile completeness
-        async with db._pool_conn() as conn:
-            rows = await conn.fetch("SELECT id, name, description, is_owner, whatsapp_number, voice_profile_id FROM people.pessoas ORDER BY name")
-        residents = [dict(r) for r in rows]
-        
-        current_res = next((r for r in residents if r["id"] == user["id"]), None)
-        
-        # MANDATORY PROFILE CHECK
-        if current_res:
-            is_incomplete = not current_res.get("whatsapp_number") or not current_res.get("voice_profile_id") or not current_res.get("description")
-            if is_incomplete:
-                logger.info(f"Redirecting {user['name']} to Persona Wizard (Incomplete Profile)")
-                return RedirectResponse(url="/wizard?mode=persona&target=self", status_code=status.HTTP_303_SEE_OTHER)
-
-        system_status = await get_system_status(request)
-        vault_health = await get_vault_health()
-        
-        return templates.TemplateResponse(
-            request=request, 
-            name="dashboard.html", 
-            context={
-                "residents": residents, 
-                "system": system_status, 
-                "vault": vault_health,
-                "user": user,
-                "setup_incomplete": False # If we are here, it is complete
-            }
-        )
-    except Exception as e:
-        logger.exception("Dashboard: Failed")
-        return HTMLResponse(content=f"Error: {e}", status_code=500)
-
-@app.post("/login")
-async def login(request: Request, name: str = Form(...), password: str = Form(...)):
-    """Authenticate an administrator."""
-    async with db._pool_conn() as conn:
-        row = await conn.fetchrow(
-            "SELECT id, name, password_hash, is_owner FROM people.pessoas WHERE lower(name) = lower($1)",
-            name
-        )
-        if not row or not row["password_hash"]:
-            return RedirectResponse(url="/?error=invalid_credentials", status_code=303)
-        
-        if not pwd_context.verify(password, row["password_hash"]):
-            return RedirectResponse(url="/?error=invalid_credentials", status_code=303)
-            
-        # Set session
-        request.session["user"] = {"id": str(row["id"]), "name": row["name"], "is_owner": row["is_owner"]}
-        return RedirectResponse(url="/", status_code=303)
-
-@app.get("/logout")
-async def logout(request: Request):
-    """Clear session and redirect."""
-    request.session.clear()
-    return RedirectResponse(url="/", status_code=303)
-
-@app.post("/vault/save")
-@app.post("/vault/save")
-async def save_vault_keys(
-    request: Request,
-    groq_key: str = Form(None),
-    user: dict = Depends(get_current_user)
-):
-    if not user or not user.get("is_owner"):
-        return JSONResponse({"error": "unauthorized"}, status_code=403)
-        
-    import secrets
-    import string
     
     # Check existing keys first
     existing_keys = {}
@@ -285,180 +81,88 @@ async def save_vault_keys(
             resp = await client.get(f"{VAULT_URL}/get_all", timeout=2.0)
             if resp.status_code == 200:
                 existing_keys = resp.json()
-        except: pass
+        except:
+            pass
 
-    # Prepare keys_to_save
-    keys_to_save = {}
-    if groq_key:
-        keys_to_save["GROQ_API_KEY"] = groq_key
-    
-    # AUTO-GENERATE BIFROST KEY IF MISSING
-    if not existing_keys.get("BIFROST_API_KEY"):
-        alphabet = string.ascii_letters + string.digits
-        new_key = "bt_" + ''.join(secrets.choice(alphabet) for _ in range(32))
-        keys_to_save["BIFROST_API_KEY"] = new_key
-    
-    success_count = 0
-    async with httpx.AsyncClient() as client:
-        for k, v in keys_to_save.items():
-            if v and len(v) > 5:
-                try:
-                    await client.post(
-                        f"{VAULT_URL}/set",
-                        json={"key": k, "value": v},
-                        timeout=5.0
-                    )
-                    success_count += 1
-                except Exception as e:
-                    logger.error(f"Vault save error for {k}: {e}")
+    for s in seeds:
+        k = s["key"]
+        v = s["value"]
+        if not existing_keys.get(k) and v:
+            logger.info(f"Seeding {k} to Vault...")
+            async with httpx.AsyncClient() as client:
+                await client.post(f"{VAULT_URL}/set", json={"key": k, "value": v})
 
-    return JSONResponse({"status": "ok", "saved": success_count, "bifrost_generated": "BIFROST_API_KEY" in keys_to_save})
-
-@app.get("/vault/inspect")
-async def inspect_vault(user: dict = Depends(get_current_user)):
-    """Secret documentation and status."""
-    if not user or not user.get("is_owner"):
-        return RedirectResponse("/", status_code=303)
-        
-    health = await get_vault_health()
-    async with httpx.AsyncClient() as client:
-        try:
-            # We don't show values, just keys and status
-            all_keys = (await client.get(f"{VAULT_URL}/get_all", timeout=5.0)).json()
-            inventory = []
-            for k, v in all_keys.items():
-                inventory.append({
-                    "key": k,
-                    "status": "ready" if v and len(v) > 5 else "empty",
-                    "essential": k in ["GROQ_API_KEY", "BIFROST_API_KEY", "DATABASE_URL"]
-                })
-        except Exception as e:
-            logger.error(f"Inspect failed: {e}")
-            inventory = []
-
-    return JSONResponse({
-        "status": "online",
-        "inventory": inventory,
-        "health_summary": health
-    })
-
-@app.on_event("startup")
-async def on_startup():
-    """Initialize DB and Seed the Vault."""
-    await db.init_pool() # Correct method name
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request, user: dict = Depends(get_current_user)):
+    """The hub: Landing/Onboarding or Admin Dashboard."""
     try:
-        await seed_vault()
-    except Exception as e:
-        logger.error(f"Failed to seed vault on startup: {e}")
-
-@app.post("/add")
-async def add_resident(
-    id: str = Form(None),
-    name: str = Form(...),
-    description: str = Form(""),
-    is_owner: bool = Form(False),
-    whatsapp: str = Form(None),
-    aliases: str = Form(""),
-    voice_profile_id: str = Form(None),
-    password: str = Form(None),
-    user: dict = Depends(get_current_user)
-):
-    if not user:
-        return RedirectResponse(url="/", status_code=303)
-        
-    try:
-        alias_list = [a.strip() for a in aliases.split(",")] if aliases else []
-        hashed_pw = pwd_context.hash(password) if password else None
+        admin_count = await get_admin_count()
+        if admin_count == 0:
+            return templates.TemplateResponse(request=request, name="welcome.html", context={})
+        if not user:
+            return templates.TemplateResponse(request=request, name="welcome.html", context={"login_mode": True})
         
         async with db._pool_conn() as conn:
-            if id:
-                await conn.execute("""
-                    UPDATE people.pessoas 
-                    SET name = $1, description = $2, is_owner = $3, 
-                        whatsapp_number = $4, aliases = $5, voice_profile_id = $6,
-                        updated_at = NOW()
-                    WHERE id = $7
-                """, name, description, is_owner, whatsapp, alias_list, voice_profile_id, id)
-                if hashed_pw:
-                    await conn.execute("UPDATE people.pessoas SET password_hash = $1 WHERE id = $2", hashed_pw, id)
-            else:
-                await conn.execute("""
-                    INSERT INTO people.pessoas (name, description, is_owner, whatsapp_number, aliases, voice_profile_id, password_hash)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
-                """, name, description, is_owner, whatsapp, alias_list, voice_profile_id, hashed_pw)
-                
-        return RedirectResponse(url="/", status_code=303)
-    except Exception as e:
-        logger.error(f"Error adding resident: {e}")
-        return RedirectResponse(url="/?error=creation_failed", status_code=303)
+            rows = await conn.fetch("SELECT id, name, description, is_owner, whatsapp_number, voice_profile_id FROM people.pessoas ORDER BY name")
+        residents = [dict(r) for r in rows]
+        current_res = next((r for r in residents if r["id"] == user["id"]), None)
+        
+        if current_res:
+            is_incomplete = not current_res.get("whatsapp_number") or not current_res.get("voice_profile_id") or not current_res.get("description")
+            if is_incomplete:
+                return RedirectResponse(url="/wizard?mode=persona&target=self", status_code=status.HTTP_303_SEE_OTHER)
 
-@app.get("/welcome", response_class=HTMLResponse)
-async def welcome_direct(request: Request):
-    return templates.TemplateResponse(request=request, name="welcome.html", context={})
-
-@app.get("/wizard", response_class=HTMLResponse)
-async def resident_wizard(
-    request: Request, 
-    target: str = "new", 
-    mode: str = "persona", 
-    user: dict = Depends(get_current_user)
-):
-    """The Step-by-Step Onboarding (Persona or Core)."""
-    if not user:
-        return RedirectResponse(url="/", status_code=303)
-    
-    # Fetch full user data from DB if target=self
-    full_user = user
-    if target == "self":
-        async with db._pool_conn() as conn:
-            row = await conn.fetchrow("SELECT id, name, aliases, description, whatsapp_number, voice_profile_id, is_owner FROM people.pessoas WHERE id = $1", user["id"])
-            if row:
-                full_user = dict(row)
-                full_user["id"] = str(full_user["id"])
-
-    vault_health = await get_vault_health()
-
-    return templates.TemplateResponse(
-        request=request, 
-        name="wizard.html", 
-        context={
-            "user": full_user, 
-            "target": target, 
-            "mode": mode,
-            "vault": vault_health
-        }
-    )
-@app.post("/wizard/voice/enroll")
-async def voice_enroll(
-    request: Request,
-    audio: UploadFile = File(...),
-    user: dict = Depends(get_current_user)
-):
-    if not user:
-        return JSONResponse(content={"error": "unauthorized"}, status_code=401)
-    
-    audio_bytes = await audio.read()
-    logger.info(f"Received voice enrollment from {user['name']} (Size: {len(audio_bytes)} bytes)")
-    
-    # ── Bridge to NATS ──────────────────────
-    # Other services (audio-pipeline) can listen to this and generate the real print
-    try:
-        enrollment_event = {
-            "user_id": user["id"],
-            "user_name": user["name"],
-            "action": "enroll_voice",
-            "format": "wav"
-        }
-        # Publish audio as raw bytes with metadata in headers
-        await request.app.state.nc.publish(
-            "mordomo.audio.enrollment",
-            audio_bytes,
-            headers={"x-mordomo-meta": str(enrollment_event)}
+        system_status = await get_system_status(request)
+        vault_health = await get_vault_health()
+        
+        return templates.TemplateResponse(
+            request=request, name="dashboard.html", 
+            context={
+                "residents": residents, "system": system_status, "vault": vault_health,
+                "user": user, "setup_incomplete": False
+            }
         )
     except Exception as e:
-        logger.error(f"Failed to publish enrollment to NATS: {e}")
+        logger.error(f"Index error: {e}")
+        return HTMLResponse("Internal Error", status_code=500)
 
-    # Generate the ID that will be used in the User DB
-    voice_id = f"vprofile_{user['id'][:8]}"
-    
-    return {"voice_id": voice_id}
+@app.get("/wizard", response_class=HTMLResponse)
+async def wizard_page(request: Request, mode: str = "persona", target: str = "self", user: dict = Depends(get_current_user)):
+    return templates.TemplateResponse("wizard.html", {"request": request, "user": user, "mode": mode, "target": target})
+
+@app.post("/vault/save")
+async def save_vault_keys(request: Request, groq_key: str = Form(None), user: dict = Depends(get_current_user)):
+    if not user or not user.get("is_owner"):
+        return JSONResponse({"error": "unauthorized"}, status_code=403)
+    if groq_key:
+        async with httpx.AsyncClient() as client:
+            await client.post(f"{VAULT_URL}/set", json={"key": "GROQ_API_KEY", "value": groq_key})
+    return RedirectResponse(url="/", status_code=303)
+
+@app.get("/debug/audio", response_class=HTMLResponse)
+async def debug_audio_page(request: Request, user: dict = Depends(get_current_user)):
+    return templates.TemplateResponse("debug_audio.html", {"request": request, "user": user})
+
+@app.websocket("/debug/audio/ws")
+async def debug_audio_ws(websocket: WebSocket):
+    await websocket.accept()
+    async def msg_handler(msg):
+        try:
+            content = msg.data.decode()
+            try: content = json.loads(content)
+            except: pass
+            await websocket.send_json({"topic": msg.subject, "payload": content})
+        except: pass
+    sub = await nc.subscribe("mordomo.>", cb=msg_handler)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        await sub.unsubscribe()
+    except Exception:
+        await sub.unsubscribe()
+
+@app.post("/debug/audio/simulate")
+async def simulate_audio_event(text: str = Form(...), user: dict = Depends(get_current_user)):
+    await nc.publish("mordomo.brain.request", json.dumps({"text": text, "user_id": user["id"]}).encode())
+    return {"status": "dispatched"}

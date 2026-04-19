@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}Neural Pipeline Monitor{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --vad-color: #3b82f6;
+        --asr-color: #8b5cf6;
+        --brain-color: #10b981;
+        --tts-color: #f59e0b;
+    }
+
+    .monitor-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 25px;
+        margin-top: 40px;
+    }
+
+    .pipeline-card {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 30px;
+        position: relative;
+        overflow: hidden;
+        transition: 0.4s;
+    }
+
+    .pipeline-card.active {
+        border-color: var(--active-color);
+        background: rgba(255, 255, 255, 0.05);
+        box-shadow: 0 0 30px var(--glow-color);
+    }
+
+    .pipeline-card h3 {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        color: var(--text-dim);
+        margin-bottom: 20px;
+    }
+
+    .status-light {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #333;
+    }
+
+    .active .status-light {
+        background: var(--active-color);
+        box-shadow: 0 0 10px var(--active-color);
+        animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.5); opacity: 0.5; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+
+    .log-stream {
+        margin-top: 40px;
+        background: #000;
+        border-radius: 15px;
+        padding: 20px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.85rem;
+        color: #10b981;
+        height: 300px;
+        overflow-y: auto;
+        border: 1px solid #10b98133;
+    }
+
+    .log-entry { margin-bottom: 5px; border-bottom: 1px solid #ffffff05; padding: 5px 0; }
+    .log-topic { color: #3b82f6; font-weight: bold; margin-right: 10px; }
+
+    .sim-panel {
+        margin-top: 40px;
+        display: flex;
+        gap: 15px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container" style="padding: 100px 0;">
+    <div style="display: flex; justify-content: space-between; align-items: start;">
+        <div>
+            <span class="section-label" style="color: var(--asr-color);">NEURAL OBSERVABILITY</span>
+            <h1 style="font-size: 3rem;">Pipeline Monitor</h1>
+            <p style="color: var(--text-dim); max-width: 600px;">Acompanhe o fluxo de mensagens entre os serviços de áudio e o cérebro em tempo real.</p>
+        </div>
+        <a href="/" class="btn btn-outline">⬅ VOLTAR AO HUB</a>
+    </div>
+
+    <!-- Simulação Manual -->
+    <div class="glass-card sim-panel">
+        <input type="text" id="sim-text" class="input-field" placeholder="Simular comando de texto (Ex: 'acender luz cozinha')..." style="margin: 0;">
+        <button onclick="simulate()" class="btn btn-primary">SIMULAR FLUXO</button>
+    </div>
+
+    <div class="monitor-grid">
+        <!-- VAD -->
+        <div id="card-vad" class="pipeline-card" style="--active-color: var(--vad-color); --glow-color: rgba(59,130,246,0.1);">
+            <div class="status-light"></div>
+            <h3>Detecção de Voz (VAD)</h3>
+            <div id="val-vad" style="font-size: 0.9rem; min-height: 40px;">Aguardando silêncio...</div>
+        </div>
+
+        <!-- ASR -->
+        <div id="card-asr" class="pipeline-card" style="--active-color: var(--asr-color); --glow-color: rgba(139,92,246,0.1);">
+            <div class="status-light"></div>
+            <h3>Transcrição (ASR)</h3>
+            <div id="val-asr" style="font-size: 1.1rem; font-weight: bold; min-height: 40px;">...</div>
+        </div>
+
+        <!-- BRAIN -->
+        <div id="card-brain" class="pipeline-card" style="--active-color: var(--brain-color); --glow-color: rgba(16,185,129,0.1);">
+            <div class="status-light"></div>
+            <h3>Cérebro (Brain)</h3>
+            <div id="val-brain" style="font-size: 0.9rem; min-height: 40px;">Pensando...</div>
+        </div>
+
+        <!-- TTS -->
+        <div id="card-tts" class="pipeline-card" style="--active-color: var(--tts-color); --glow-color: rgba(245,158,11,0.1);">
+            <div class="status-light"></div>
+            <h3>Resposta de Voz (TTS)</h3>
+            <div id="val-tts" style="font-size: 0.9rem; min-height: 40px;">Sintetizando...</div>
+        </div>
+    </div>
+
+    <div class="log-stream" id="log-stream">
+        <div class="log-entry"><span class="log-topic">SYSTEM</span> Real-time monitor connected. Watching mordomo.></div>
+    </div>
+</div>
+
+<script>
+    const logStream = document.getElementById('log-stream');
+    const ws = new WebSocket(`ws://${window.location.host}/debug/audio/ws`);
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        addLog(data.topic, JSON.stringify(data.payload));
+        processNeuralMessage(data.topic, data.payload);
+    };
+
+    function addLog(topic, msg) {
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.innerHTML = `<span class="log-topic">${topic}</span> ${msg}`;
+        logStream.prepend(entry);
+        if (logStream.childNodes.length > 50) logStream.removeChild(logStream.lastChild);
+    }
+
+    function processNeuralMessage(topic, payload) {
+        // Reset effects if they start a new cycle
+        if (topic.includes('vad') && payload.state === 'started') {
+            document.querySelectorAll('.pipeline-card').forEach(c => c.classList.remove('active'));
+        }
+
+        if (topic.includes('vad')) {
+            activateCard('vad', payload.state === 'started' ? '🗣️ Capturando Áudio...' : '🔇 Silêncio');
+        } else if (topic.includes('asr')) {
+            activateCard('asr', payload.text || 'Processando transcrição...');
+        } else if (topic.includes('brain')) {
+            activateCard('brain', payload.text || payload.response || 'Gerando raciocínio...');
+        } else if (topic.includes('tts')) {
+            activateCard('tts', payload.state === 'speaking' ? '📢 Reproduzindo Resposta...' : '✅ Finalizado');
+        }
+    }
+
+    function activateCard(id, text) {
+        const card = document.getElementById('card-' + id);
+        const val = document.getElementById('val-' + id);
+        card.classList.add('active');
+        val.innerText = text;
+    }
+
+    async function simulate() {
+        const text = document.getElementById('sim-text').value;
+        if (!text) return;
+        
+        const formData = new FormData();
+        formData.append('text', text);
+        
+        await fetch('/debug/audio/simulate', {
+            method: 'POST',
+            body: formData
+        });
+        document.getElementById('sim-text').value = '';
+    }
+</script>
+{% endblock %}
