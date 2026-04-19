@@ -92,21 +92,22 @@
         <!-- Main Workspace -->
         <main class="main-content">
             
-            {% if setup_incomplete or vault.OPENAI_API_KEY == 'missing' %}
+            {% set core_missing = vault.GROQ_API_KEY == 'missing' or vault.BIFROST_API_KEY == 'missing' %}
+            {% if setup_incomplete or core_missing %}
             <div class="glass-card reveal" style="border: 1px solid #f59e0b22; background: rgba(245, 158, 11, 0.03); margin-bottom: 40px; border-left: 4px solid #f59e0b;">
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px;">
                     <div>
                         <h3 style="color: #f59e0b; margin-bottom: 10px;">⚠️ Configuração do Núcleo Requerida</h3>
                         <p style="font-size: 0.9rem; color: var(--text-dim);">
                             {% if setup_incomplete %}• Perfil de Mestre (WhatsApp e Voz) incompleto.<br>{% endif %}
-                            {% if vault.OPENAI_API_KEY == 'missing' %}• Chaves de API essenciais não provisionadas no Vault.{% endif %}
+                            {% if core_missing %}• Infraestrutura básica (Groq/Gateway) não provisionada.{% endif %}
                         </p>
                     </div>
                     <div style="display: flex; gap: 10px;">
                         {% if setup_incomplete %}
                         <a href="/wizard?target=self&mode=persona" class="btn btn-outline" style="font-size: 0.7rem; padding: 10px 15px;">AJUSTAR PERFIL</a>
                         {% endif %}
-                        {% if vault.OPENAI_API_KEY == 'missing' %}
+                        {% if core_missing %}
                         <a href="/wizard?mode=core" class="btn btn-primary" style="background: #f59e0b; border: 0; color: black; font-weight: bold; padding: 10px 20px; font-size: 0.7rem;">PROVISIONAR CORE</a>
                         {% endif %}
                     </div>

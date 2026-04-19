@@ -40,8 +40,8 @@ def get_current_user(request: Request):
 from src.config import VAULT_URL, VAULT_TOKEN
 
 async def get_vault_health():
-    """Check if essential keys exist in the Vault."""
-    essential_keys = ["OPENAI_API_KEY", "DEEPGRAM_API_KEY", "GOOGLE_API_KEY"]
+    """Check if essential infrastructure keys exist in the Vault."""
+    essential_keys = ["GROQ_API_KEY", "BIFROST_API_KEY"]
     health = {key: "missing" for key in essential_keys}
     
     if not VAULT_TOKEN:
@@ -50,16 +50,17 @@ async def get_vault_health():
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(
-                f"{VAULT_URL}/v1/secret/data/mordomo/core/keys",
-                headers={"X-Vault-Token": VAULT_TOKEN},
+                f"{VAULT_URL}/get_all", # Using the /get_all endpoint for simplicity
                 timeout=2.0
             )
             if resp.status_code == 200:
-                data = resp.json().get("data", {}).get("data", {})
+                data = resp.json() # Returns {key: val}
                 for key in essential_keys:
-                    if data.get(key):
+                    if data.get(key) and len(data.get(key)) > 5:
                         health[key] = "ready"
-    except: pass
+    except Exception as e:
+        logger.error(f"Vault health check failed: {e}")
+        
     return health
 
 async def get_system_status(request: Request):
@@ -200,19 +201,17 @@ async def logout(request: Request):
 @app.post("/vault/save")
 async def save_vault_keys(
     request: Request,
-    openai_key: str = Form(None),
-    deepgram_key: str = Form(None),
-    google_key: str = Form(None),
+    groq_key: str = Form(None),
+    bifrost_key: str = Form(None),
     user: dict = Depends(get_current_user)
 ):
     if not user or not user.get("is_owner"):
         return JSONResponse({"error": "unauthorized"}, status_code=403)
         
-    # We support both AJAX (Form data) and regular Form submit
+    # Mapping for the Core Wizard essentials
     keys_to_save = {
-        "OPENAI_API_KEY": openai_key,
-        "DEEPGRAM_API_KEY": deepgram_key,
-        "GOOGLE_API_KEY": google_key
+        "GROQ_API_KEY": groq_key,
+        "BIFROST_API_KEY": bifrost_key
     }
     
     success_count = 0
