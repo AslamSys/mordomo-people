@@ -41,20 +41,17 @@ from src.config import VAULT_URL, VAULT_TOKEN
 
 async def get_vault_health():
     """Check if essential infrastructure keys exist in the Vault."""
-    essential_keys = ["GROQ_API_KEY", "BIFROST_API_KEY"]
+    essential_keys = ["GROQ_API_KEY", "BIFROST_API_KEY", "DATABASE_URL", "PEOPLE_MASTER_KEY"]
     health = {key: "missing" for key in essential_keys}
     
     if not VAULT_TOKEN:
-        return health # Cannot check without token
+        return health
 
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"{VAULT_URL}/get_all", # Using the /get_all endpoint for simplicity
-                timeout=2.0
-            )
+            resp = await client.get(f"{VAULT_URL}/get_all", timeout=2.0)
             if resp.status_code == 200:
-                data = resp.json() # Returns {key: val}
+                data = resp.json()
                 for key in essential_keys:
                     if data.get(key) and len(data.get(key)) > 5:
                         health[key] = "ready"
@@ -62,6 +59,55 @@ async def get_vault_health():
         logger.error(f"Vault health check failed: {e}")
         
     return health
+
+async def seed_vault():
+    """Seed the Vault with essential data from current ENVs (Initial Migration)."""
+    from src.config import DATABASE_URL, PEOPLE_MASTER_KEY
+    import secrets
+    import string
+
+    # Keys to prioritize for migration with descriptions
+    seeds = [
+        {
+            "key": "DATABASE_URL", 
+            "value": DATABASE_URL, 
+            "desc": "PostgreSQL Master Connection String (Main Hub Database)"
+        },
+        {
+            "key": "PEOPLE_MASTER_KEY", 
+            "value": PEOPLE_MASTER_KEY, 
+            "desc": "AES-256 Master Key for Resident Data Encryption"
+        }
+    ]
+
+    async with httpx.AsyncClient() as client:
+        # 1. Check what's already there
+        try:
+            current = (await client.get(f"{VAULT_URL}/get_all", timeout=5.0)).json()
+        except Exception as e:
+            logger.error(f"Could not reach Vault for seeding: {e}")
+            current = {}
+
+        # 2. Seed missing essentials
+        for item in seeds:
+            k, v, d = item["key"], item["value"], item["desc"]
+            if not current.get(k) and v:
+                logger.info(f"Seeding {k} to Vault...")
+                await client.post(f"{VAULT_URL}/set", json={"key": k, "value": v, "description": d})
+
+        # 3. Auto-generate BIFROST if missing
+        if not current.get("BIFROST_API_KEY"):
+            alphabet = string.ascii_letters + string.digits
+            new_key = "bt_" + ''.join(secrets.choice(alphabet) for _ in range(32))
+            logger.info("Auto-generating BIFROST_API_KEY seed...")
+            await client.post(
+                f"{VAULT_URL}/set", 
+                json={
+                    "key": "BIFROST_API_KEY", 
+                    "value": new_key, 
+                    "description": "Internal Master Key for LLM Gateway (Bifrost) authentication"
+                }
+            )
 
 async def get_system_status(request: Request):
     """Health probes grouped by ecosystem."""
@@ -245,6 +291,43 @@ async def save_vault_keys(
                     logger.error(f"Vault save error for {k}: {e}")
 
     return JSONResponse({"status": "ok", "saved": success_count, "bifrost_generated": "BIFROST_API_KEY" in keys_to_save})
+
+@app.get("/vault/inspect")
+async def inspect_vault(user: dict = Depends(get_current_user)):
+    """Secret documentation and status."""
+    if not user or not user.get("is_owner"):
+        return RedirectResponse("/", status_code=303)
+        
+    health = await get_vault_health()
+    async with httpx.AsyncClient() as client:
+        try:
+            # We don't show values, just keys and status
+            all_keys = (await client.get(f"{VAULT_URL}/get_all", timeout=5.0)).json()
+            inventory = []
+            for k, v in all_keys.items():
+                inventory.append({
+                    "key": k,
+                    "status": "ready" if v and len(v) > 5 else "empty",
+                    "essential": k in ["GROQ_API_KEY", "BIFROST_API_KEY", "DATABASE_URL"]
+                })
+        except Exception as e:
+            logger.error(f"Inspect failed: {e}")
+            inventory = []
+
+    return JSONResponse({
+        "status": "online",
+        "inventory": inventory,
+        "health_summary": health
+    })
+
+@app.on_event("startup")
+async def on_startup():
+    """Initialize DB and Seed the Vault."""
+    await db.init_pool() # Correct method name
+    try:
+        await seed_vault()
+    except Exception as e:
+        logger.error(f"Failed to seed vault on startup: {e}")
 
 @app.post("/add")
 async def add_resident(
