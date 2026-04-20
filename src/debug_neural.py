@@ -45,11 +45,19 @@ async def monitor_ws(websocket: WebSocket):
     
     try:
         while True:
-            # Keep alive and listen for simulated requests from client
-            data = await websocket.receive_text()
-            if data.startswith("simulate:"):
-                text = data.replace("simulate:", "")
-                await nc.publish("mordomo.orchestrator.request", json.dumps({"text": text, "user_id": "debug"}).encode())
+            # Handle both JSON commands and RAW AUDIO
+            data = await websocket.receive()
+            
+            if "text" in data:
+                text = data["text"]
+                if text.startswith("simulate:"):
+                    cmd = text.replace("simulate:", "")
+                    await nc.publish("mordomo.orchestrator.request", json.dumps({"text": cmd, "user_id": "debug"}).encode())
+            
+            elif "bytes" in data:
+                # Raw audio chunk from browser
+                await nc.publish("mordomo.audio.stream", data["bytes"])
+
     except WebSocketDisconnect:
         await sub.unsubscribe()
     except Exception:

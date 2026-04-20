@@ -99,10 +99,19 @@
         <a href="/" class="btn btn-outline">⬅ VOLTAR AO HUB</a>
     </div>
 
-    <!-- Simulação Manual -->
-    <div class="glass-card sim-panel">
-        <input type="text" id="sim-text" class="input-field" placeholder="Simular comando de texto (Ex: 'acender luz cozinha')..." style="margin: 0;">
-        <button onclick="simulate()" class="btn btn-primary">SIMULAR FLUXO</button>
+    <!-- Simulação Manual e Microfone -->
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 25px; margin-top: 40px;">
+        <div class="glass-card sim-panel" style="margin: 0; align-items: center;">
+            <input type="text" id="sim-text" class="input-field" placeholder="Simular comando de texto (Ex: 'acender luz cozinha')..." style="margin: 0;">
+            <button onclick="simulate()" class="btn btn-primary">SIMULAR FLUXO</button>
+        </div>
+        
+        <div class="glass-card" style="display: flex; align-items: center; justify-content: center; gap: 15px; padding: 0 20px;">
+            <div id="mic-status" style="font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px;">Ready</div>
+            <button id="talk-btn" class="btn" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border); width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s;">
+                <i id="mic-icon" class="fas fa-microphone" style="color: var(--text-dim);"></i>
+            </button>
+        </div>
     </div>
 
     <div class="monitor-grid">
@@ -136,13 +145,18 @@
     </div>
 
     <div class="log-stream" id="log-stream">
-        <div class="log-entry"><span class="log-topic">SYSTEM</span> Real-time monitor connected. Watching mordomo.></div>
+        <div class="log-entry"><span class="log-topic">SYSTEM</span> Real-time monitor connected. Watching mordomo.</div>
     </div>
 </div>
 
 <script>
     const logStream = document.getElementById('log-stream');
     const ws = new WebSocket(`ws://${window.location.host}/debug-neural/ws`);
+    
+    let mediaRecorder;
+    const talkBtn = document.getElementById('talk-btn');
+    const micIcon = document.getElementById('mic-icon');
+    const micStatus = document.getElementById('mic-status');
 
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
@@ -159,7 +173,6 @@
     }
 
     function processNeuralMessage(topic, payload) {
-        // Reset effects if they start a new cycle
         if (topic.includes('verified') || (topic.includes('speech') && !topic.includes('tts'))) {
             document.querySelectorAll('.pipeline-card').forEach(c => {
                 c.classList.remove('active');
@@ -193,10 +206,37 @@
     async function simulate() {
         const text = document.getElementById('sim-text').value;
         if (!text) return;
-        
-        // Sending simulation command via WebSocket instead of POST for isolation
         ws.send("simulate:" + text);
         document.getElementById('sim-text').value = '';
     }
+
+    // Microphone logic
+    talkBtn.onmousedown = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+            
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) ws.send(e.data);
+            };
+
+            mediaRecorder.start(100);
+            micIcon.style.color = 'var(--active-color)';
+            micStatus.innerText = 'Listening...';
+            talkBtn.classList.add('pulse');
+        } catch (err) {
+            addLog('SYSTEM', 'Mic Error: ' + err);
+        }
+    };
+
+    talkBtn.onmouseup = () => {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+            mediaRecorder.stream.getTracks().forEach(t => t.stop());
+            micIcon.style.color = 'var(--text-dim)';
+            micStatus.innerText = 'Processing...';
+            talkBtn.classList.remove('pulse');
+        }
+    };
 </script>
 {% endblock %}
