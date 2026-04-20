@@ -5,20 +5,22 @@ import secrets
 import string
 import httpx
 import asyncio
-from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, Response, UploadFile, File, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, Response, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from nats.aio.client import Client as NATS
 
-# Internal imports (assuming they exist in src)
-from src.db import db
+# Internal imports (correcting to function imports)
+from src.db import init_pool, close_pool, _pool_conn
 from src.config import VAULT_URL
 from src.auth import get_current_user
+from src.debug_neural import app as debug_app
 
 logger = logging.getLogger("mordomo-people")
 
 app = FastAPI(title="Mordomo Resident Hub")
+app.mount("/debug-neural", debug_app)
 templates = Jinja2Templates(directory="src/templates")
 
 # NATS Global Client
@@ -26,7 +28,7 @@ nc = NATS()
 
 @app.on_event("startup")
 async def startup_event():
-    await db.connect()
+    await init_pool() # From src.db
     try:
         await nc.connect("nats://nats:4222")
         logger.info("NATS connected: nats://nats:4222")
@@ -35,7 +37,7 @@ async def startup_event():
         logger.error(f"NATS connection failed: {e}")
 
 async def get_admin_count():
-    async with db._pool_conn() as conn:
+    async with _pool_conn() as conn:
         return await conn.fetchval("SELECT count(*) FROM people.pessoas WHERE is_owner = True")
 
 async def get_system_status(request: Request):
@@ -74,7 +76,6 @@ async def seed_vault():
         {"key": "SESSION_SECRET", "value": secrets.token_urlsafe(24)}
     ]
     
-    # Check existing keys first
     existing_keys = {}
     async with httpx.AsyncClient() as client:
         try:
@@ -102,7 +103,7 @@ async def index(request: Request, user: dict = Depends(get_current_user)):
         if not user:
             return templates.TemplateResponse(request=request, name="welcome.html", context={"login_mode": True})
         
-        async with db._pool_conn() as conn:
+        async with _pool_conn() as conn:
             rows = await conn.fetch("SELECT id, name, description, is_owner, whatsapp_number, voice_profile_id FROM people.pessoas ORDER BY name")
         residents = [dict(r) for r in rows]
         current_res = next((r for r in residents if r["id"] == user["id"]), None)
@@ -138,31 +139,3 @@ async def save_vault_keys(request: Request, groq_key: str = Form(None), user: di
         async with httpx.AsyncClient() as client:
             await client.post(f"{VAULT_URL}/set", json={"key": "GROQ_API_KEY", "value": groq_key})
     return RedirectResponse(url="/", status_code=303)
-
-@app.get("/debug/audio", response_class=HTMLResponse)
-async def debug_audio_page(request: Request, user: dict = Depends(get_current_user)):
-    return templates.TemplateResponse("debug_audio.html", {"request": request, "user": user})
-
-@app.websocket("/debug/audio/ws")
-async def debug_audio_ws(websocket: WebSocket):
-    await websocket.accept()
-    async def msg_handler(msg):
-        try:
-            content = msg.data.decode()
-            try: content = json.loads(content)
-            except: pass
-            await websocket.send_json({"topic": msg.subject, "payload": content})
-        except: pass
-    sub = await nc.subscribe("mordomo.>", cb=msg_handler)
-    try:
-        while True:
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        await sub.unsubscribe()
-    except Exception:
-        await sub.unsubscribe()
-
-@app.post("/debug/audio/simulate")
-async def simulate_audio_event(text: str = Form(...), user: dict = Depends(get_current_user)):
-    await nc.publish("mordomo.orchestrator.request", json.dumps({"text": text, "user_id": user["id"]}).encode())
-    return {"status": "dispatched"}

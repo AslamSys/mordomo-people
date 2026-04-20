@@ -142,7 +142,7 @@
 
 <script>
     const logStream = document.getElementById('log-stream');
-    const ws = new WebSocket(`ws://${window.location.host}/debug/audio/ws`);
+    const ws = new WebSocket(`ws://${window.location.host}/debug-neural/ws`);
 
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
@@ -194,14 +194,8 @@
         const text = document.getElementById('sim-text').value;
         if (!text) return;
         
-        const formData = new FormData();
-        formData.append('text', text);
-        
-        // Use the simulation endpoint which publishes to mordomo.orchestrator.request
-        await fetch('/debug/audio/simulate', {
-            method: 'POST',
-            body: formData
-        });
+        // Sending simulation command via WebSocket instead of POST for isolation
+        ws.send("simulate:" + text);
         document.getElementById('sim-text').value = '';
     }
 </script>
