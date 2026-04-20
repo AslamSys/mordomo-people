@@ -26,6 +26,19 @@ async def monitor_page(request: Request):
     # This serves the same debug_audio.html
     return templates.TemplateResponse(request=request, name="debug_audio.html", context={})
 
+@app.post("/upload-audio")
+async def upload_audio(file: UploadFile = File(...)):
+    """Accepts a full audio file and pushes it to the voice pipeline."""
+    try:
+        audio_bytes = await file.read()
+        logger.info(f"DEBUG: Received audio upload ({len(audio_bytes)} bytes). Publishing to NATS.")
+        # Publish to the main stream as if it were a high-quality capture
+        await nc.publish("mordomo.audio.stream", audio_bytes)
+        return {"status": "ok", "bytes": len(audio_bytes)}
+    except Exception as e:
+        logger.error(f"DEBUG: Upload failed: {e}")
+        return {"status": "error", "message": str(e)}
+
 @app.websocket("/ws")
 async def monitor_ws(websocket: WebSocket):
     await websocket.accept()
