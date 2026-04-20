@@ -1,238 +1,262 @@
-{% extends "layout.html" %}
-{% block content %}
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MORDOR_NEURAL_OS // PIPELINE MONITOR</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
 
-    :root {
-        --bg-color: #05070a;
-        --term-bg: #0c0e14;
-        --term-border: #1e293b;
-        --term-header: #1a1d26;
-        --neon-green: #00ff41;
-        --text-dim: #64748b;
-        --text-main: #d1d5db;
-    }
+        :root {
+            --bg-color: #05070a;
+            --term-bg: #0c0e14;
+            --term-border: #1e293b;
+            --term-header: #1a1d26;
+            --neon-green: #00ff41;
+            --text-dim: #64748b;
+            --text-main: #d1d5db;
+        }
 
-    body {
-        background: var(--bg-color);
-        color: var(--text-main);
-        font-family: 'Fira Code', monospace;
-        margin: 0;
-        height: 100vh;
-        display: flex;
-        flex-direction: column;
-    }
+        body {
+            background: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Fira Code', monospace;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
 
-    .monitor-env {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        padding: 20px;
-        box-sizing: border-box;
-        overflow-y: auto;
-    }
+        .monitor-env {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
 
-    .terminal-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 20px;
-        margin-bottom: 100px;
-    }
+        .terminal-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 120px;
+        }
 
-    .terminal-window {
-        background: var(--term-bg);
-        border: 1px solid var(--term-border);
-        border-radius: 6px;
-        display: flex;
-        flex-direction: column;
-        height: 250px;
-        transition: all 0.2s;
-        position: relative;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-    }
+        .terminal-window {
+            background: var(--term-bg);
+            border: 1px solid var(--term-border);
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            height: 260px;
+            transition: all 0.2s;
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+        }
 
-    .terminal-window.active-flash {
-        animation: scanline 0.5s ease-out;
-        border-color: var(--neon-green);
-        box-shadow: 0 0 20px rgba(0, 255, 65, 0.15);
-    }
+        .terminal-window.active-flash {
+            animation: scanline 0.5s ease-out;
+            border-color: var(--neon-green);
+            box-shadow: 0 0 25px rgba(0, 255, 65, 0.2);
+        }
 
-    @keyframes scanline {
-        0% { filter: brightness(1); }
-        50% { filter: brightness(1.6); }
-        100% { filter: brightness(1); }
-    }
+        @keyframes scanline {
+            0% { filter: brightness(1); }
+            50% { filter: brightness(1.8); }
+            100% { filter: brightness(1); }
+        }
 
-    .term-header {
-        background: var(--term-header);
-        padding: 8px 12px;
-        border-bottom: 1px solid var(--term-border);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        font-size: 10px;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        color: var(--text-dim);
-    }
+        .term-header {
+            background: var(--term-header);
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--term-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-dim);
+            user-select: none;
+        }
 
-    .term-controls { display: flex; gap: 6px; }
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: #333; }
-    .dot.red { background: #ff5f56; }
-    .dot.yellow { background: #ffbd2e; }
-    .dot.green { background: #27c93f; }
+        .term-controls { display: flex; gap: 6px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: #222; }
+        .dot.red { background: #ff5f56; }
+        .dot.yellow { background: #ffbd2e; }
+        .dot.green { background: #27c93f; }
 
-    .term-body {
-        flex: 1;
-        padding: 12px;
-        font-size: 12px;
-        overflow-y: auto;
-        color: var(--neon-green);
-        scrollbar-width: thin;
-        scrollbar-color: var(--term-border) transparent;
-    }
+        .term-body {
+            flex: 1;
+            padding: 12px;
+            font-size: 12px;
+            overflow-y: auto;
+            color: var(--neon-green);
+            scrollbar-width: thin;
+            scrollbar-color: var(--term-border) transparent;
+        }
 
-    .term-line { margin-bottom: 6px; line-height: 1.4; }
-    .term-timestamp { color: #008f11; font-size: 10px; margin-right: 8px; }
+        .term-line { margin-bottom: 6px; line-height: 1.4; word-break: break-all; }
+        .term-timestamp { color: #008f11; font-size: 10px; margin-right: 8px; opacity: 0.7; }
 
-    /* Action bar at the bottom */
-    .action-bar {
-        position: fixed;
-        bottom: 0; left: 0; right: 0;
-        background: #0a0c12;
-        border-top: 1px solid var(--term-border);
-        padding: 20px 40px;
-        display: flex;
-        align-items: center;
-        gap: 25px;
-        z-index: 9999;
-    }
+        .action-bar {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: #080a10;
+            border-top: 1px solid var(--term-border);
+            padding: 24px 40px;
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            z-index: 9999;
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.8);
+        }
 
-    .mic-trigger {
-        width: 54px; height: 54px;
-        border-radius: 50%;
-        border: 2px solid var(--term-border);
-        background: rgba(255,255,255,0.02);
-        color: var(--text-dim);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 20px;
-        transition: 0.3s;
-    }
-    .mic-trigger.recording { 
-        color: var(--neon-green); 
-        border-color: var(--neon-green); 
-        box-shadow: 0 0 15px var(--neon-green);
-        animation: pulse-mic 1.5s infinite;
-    }
+        .mic-trigger {
+            width: 58px; height: 58px;
+            border-radius: 50%;
+            border: 2px solid var(--term-border);
+            background: rgba(255,255,255,0.01);
+            color: var(--text-dim);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
 
-    @keyframes pulse-mic {
-        0% { opacity: 1; }
-        50% { opacity: 0.6; }
-        100% { opacity: 1; }
-    }
+        .mic-trigger:hover { border-color: var(--text-main); transform: scale(1.05); }
 
-    .sim-input {
-        flex: 1;
-        background: #000;
-        border: 1px solid var(--term-border);
-        padding: 12px 18px;
-        border-radius: 6px;
-        color: var(--neon-green);
-        font-family: 'Fira Code', monospace;
-        font-size: 14px;
-    }
-    .sim-input:focus { outline: none; border-color: var(--neon-green); }
+        .mic-trigger.recording { 
+            color: var(--neon-green); 
+            border-color: var(--neon-green); 
+            box-shadow: 0 0 20px var(--neon-green);
+            animation: pulse-mic 1.2s infinite;
+        }
 
-    .btn-send {
-        background: var(--neon-green);
-        color: black;
-        border: none;
-        padding: 12px 30px;
-        border-radius: 6px;
-        font-weight: bold;
-        cursor: pointer;
-        font-family: inherit;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-</style>
+        @keyframes pulse-mic {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .sim-input {
+            flex: 1;
+            background: #000;
+            border: 1px solid var(--term-border);
+            padding: 14px 20px;
+            border-radius: 8px;
+            color: var(--neon-green);
+            font-family: 'Fira Code', monospace;
+            font-size: 14px;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+        }
+        .sim-input:focus { outline: none; border-color: var(--neon-green); box-shadow: 0 0 10px rgba(0,255,65,0.1); }
+
+        .btn-send {
+            background: var(--neon-green);
+            color: black;
+            border: none;
+            padding: 14px 34px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: inherit;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: 0.2s;
+        }
+        .btn-send:hover { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 4px 15px rgba(0,255,65,0.3); }
+
+    </style>
+</head>
+<body>
 
 <div class="monitor-env">
-    <div style="margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid var(--term-border); padding-bottom: 10px;">
+    <div style="margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid var(--term-border); padding-bottom: 12px;">
         <div>
-            <h1 style="margin:0; font-size: 1.6rem; color: var(--neon-green); letter-spacing: -1px;">MORDOMO_NEURAL_KERNEL</h1>
-            <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Real-time Pipeline Matrix v5.0.4</div>
+            <h1 style="margin:0; font-size: 1.8rem; color: var(--neon-green); font-weight: 500;">MORDOMO_NEURAL_KERNEL [LOCAL_HOST]</h1>
+            <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; font-weight: bold;">System Time: <span id="clock">00:00:00</span> // Latency: <span id="latency">--ms</span></div>
         </div>
-        <div id="conn-status" style="font-size: 0.75rem; color: var(--neon-green);">STATUS: OK_SYNC</div>
+        <div style="display: flex; gap: 15px; align-items: center;">
+            <div id="conn-status" style="font-size: 0.75rem; color: var(--neon-green); background: rgba(0,255,65,0.05); padding: 4px 10px; border-radius: 4px; border: 1px solid rgba(0,255,65,0.2);">SOCKET: ESTABLISHED</div>
+        </div>
     </div>
 
     <div class="terminal-grid">
-        <!-- Row 1 -->
+        <!-- Capture -->
         <div id="term-vad" class="terminal-window">
             <div class="term-header">
                 <div class="term-controls"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
-                <span>capture.vad</span><div>_ □ x</div>
+                <span>mordomo.audio.capture</span><div>_ □ x</div>
             </div>
             <div class="term-body" id="body-vad"></div>
         </div>
 
+        <!-- Wake Word -->
         <div id="term-wake" class="terminal-window">
             <div class="term-header">
                 <div class="term-controls"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
-                <span>detector.wakeword</span><div>_ □ x</div>
+                <span>mordomo.wake.detector</span><div>_ □ x</div>
             </div>
             <div class="term-body" id="body-wake"></div>
         </div>
 
+        <!-- Bio Identification -->
         <div id="term-bio" class="terminal-window">
             <div class="term-header">
                 <div class="term-controls"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
-                <span>idserv.biometrics</span><div>_ □ x</div>
+                <span>mordomo.identity.biometrics</span><div>_ □ x</div>
             </div>
             <div class="term-body" id="body-bio"></div>
         </div>
 
-        <!-- Row 2 -->
+        <!-- ASR (Whisper) -->
         <div id="term-asr" class="terminal-window">
             <div class="term-header">
                 <div class="term-controls"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
-                <span>listener.asr</span><div>_ □ x</div>
+                <span>mordomo.speech.asr</span><div>_ □ x</div>
             </div>
             <div class="term-body" id="body-asr"></div>
         </div>
 
+        <!-- Orchestrator -->
         <div id="term-orch" class="terminal-window">
             <div class="term-header">
                 <div class="term-controls"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
-                <span>orchestrator.bus</span><div>_ □ x</div>
+                <span>mordomo.orchestrator.bus</span><div>_ □ x</div>
             </div>
             <div class="term-body" id="body-orch"></div>
         </div>
 
+        <!-- Brain / LLM -->
         <div id="term-brain" class="terminal-window">
             <div class="term-header">
                 <div class="term-controls"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
-                <span>neural.brain.llm</span><div>_ □ x</div>
+                <span>mordomo.neural.brain</span><div>_ □ x</div>
             </div>
             <div class="term-body" id="body-brain"></div>
         </div>
 
-        <!-- Row 3 -->
+        <!-- Actions / IoT -->
         <div id="term-actions" class="terminal-window">
             <div class="term-header">
                 <div class="term-controls"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
-                <span>iot.dispatcher</span><div>_ □ x</div>
+                <span>mordomo.iot.dispatcher</span><div>_ □ x</div>
             </div>
             <div class="term-body" id="body-actions"></div>
         </div>
 
+        <!-- Voice / TTS -->
         <div id="term-tts" class="terminal-window">
             <div class="term-header">
                 <div class="term-controls"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
-                <span>audio.tts.engine</span><div>_ □ x</div>
+                <span>mordomo.audio.tts</span><div>_ □ x</div>
             </div>
             <div class="term-body" id="body-tts"></div>
         </div>
@@ -241,12 +265,17 @@
 
 <div class="action-bar">
     <button class="mic-trigger" id="talk-btn"><i class="fas fa-microphone"></i></button>
-    <div id="mic-status" style="font-size: 0.75rem; color: var(--text-dim); width: 150px;">IO_STATE: IDLE</div>
-    <input type="text" id="sim-text" class="sim-input" placeholder="root@mordomo:~# [inject sequence here]">
-    <button onclick="simulate()" class="btn-send">EXECUTE</button>
+    <div id="mic-status" style="font-size: 0.75rem; color: var(--text-dim); width: 160px; font-weight: bold;">[OS_IDLE]</div>
+    <input type="text" id="sim-text" class="sim-input" placeholder="root@mordomo:~# simulate --text 'command here'">
+    <button onclick="simulate()" class="btn-send">INJECT_CMD</button>
 </div>
 
 <script>
+    // System Clock
+    setInterval(() => {
+        document.getElementById('clock').innerText = new Date().toLocaleTimeString('pt-BR', { hour12: false });
+    }, 1000);
+
     const ws = new WebSocket(`ws://${window.location.host}/debug-neural/ws`);
 
     ws.onmessage = (event) => {
@@ -265,32 +294,31 @@
         line.innerHTML = `<span class="term-timestamp">${ts}</span> ${msg}`;
         
         body.appendChild(line);
-        // Limit history for performance
-        if (body.childNodes.length > 30) body.removeChild(body.firstChild);
+        if (body.childNodes.length > 50) body.removeChild(body.firstChild);
         body.scrollTop = body.scrollHeight;
 
-        // Flash Card
+        // Visual Flash
         term.classList.remove('active-flash');
-        void term.offsetWidth;
+        void term.offsetWidth; // Trigger reflow
         term.classList.add('active-flash');
     }
 
     function processSignal(topic, payload) {
         if (topic.includes('audio.stream')) {
-            addTermLine('vad', `>> RCV_BLOB: ${payload.length || '?'} samples`);
+            addTermLine('vad', `>> BYTES_RCV [${payload.length || 'RAW'}]`);
         } else if (topic.includes('wake_word.detected')) {
-            addTermLine('wake', `>> DETECTED: "${payload.keyword}" (CONF: ${payload.confidence})`);
+            addTermLine('wake', `>> DETECTED: [${payload.keyword}] CONF=${payload.confidence}`);
         } else if (topic.includes('speaker.verified')) {
-            addTermLine('bio', `>> VERIFIED: ID=${payload.speaker_id} AUTH=YES`);
+            addTermLine('bio', `>> VERIFIED_USER: [${payload.speaker_id}]`);
         } else if (topic.includes('speech.transcribed')) {
-            const mode = payload.is_final ? 'FINAL' : 'LIVE';
+            const mode = payload.is_final ? 'TRANSCRIBED' : 'STREAMING';
             addTermLine('asr', `>> ${mode}: "${payload.text}"`);
         } else if (topic.includes('orchestrator.request')) {
-            addTermLine('orch', `>> ROUTING: inbound text handled.`);
+            addTermLine('orch', `>> EVENT_ROUTED: type=speech_intent`);
         } else if (topic.includes('brain.action')) {
-            addTermLine('actions', `>> SYSCALL: ${payload.type} (TARGET=${payload.device_id})`);
+            addTermLine('actions', `>> SYSCALL: ${payload.type} (TARGET=${payload.device_id || 'system'})`);
         } else if (topic.includes('brain.response')) {
-            addTermLine('brain', `>> RESPONSE: "${payload.text}"`);
+            addTermLine('brain', `>> LLM_OUTPUT: "${payload.text}"`);
         } else if (topic.includes('tts.status')) {
             addTermLine('tts', `>> STATE: ${payload.state.toUpperCase()}`);
         }
@@ -303,7 +331,7 @@
         document.getElementById('sim-text').value = '';
     }
 
-    // RAW PCM Logic
+    // RAW PCM RECORDING
     let audioContext, processor, input, isRecording = false;
     const talkBtn = document.getElementById('talk-btn');
     const micStatus = document.getElementById('mic-status');
@@ -316,6 +344,7 @@
                 input = audioContext.createMediaStreamSource(stream);
                 const pcmBuffer = [];
                 processor = audioContext.createScriptProcessor(4096, 1, 1);
+                
                 processor.onaudioprocess = (e) => {
                     const inputData = e.inputBuffer.getChannelData(0);
                     const pcm16 = new Int16Array(inputData.length);
@@ -324,12 +353,13 @@
                     }
                     pcmBuffer.push(...pcm16);
                 };
+
                 input.connect(processor);
                 processor.connect(audioContext.destination);
                 isRecording = true;
                 talkBtn.classList.add('recording');
-                micStatus.innerText = 'IO_STATE: RECORDING';
-                addTermLine('vad', '>> STREAMING: Local Buffer -> NATS');
+                micStatus.innerText = '[OS_RECORDING]';
+                addTermLine('vad', '>> MIC_OPEN: Capturing PCM 16kHz...');
                 window._currentBuffer = pcmBuffer;
             } catch (err) { console.error(err); }
         } else {
@@ -338,12 +368,18 @@
             const blob = new Blob([pcmData.buffer], { type: 'application/octet-stream' });
             const formData = new FormData();
             formData.append('file', blob, 'cmd.raw');
-            fetch('/debug-neural/upload-audio', { method: 'POST', body: formData });
+            
+            addTermLine('vad', '>> FLUSHING_BUFFER: Transferring to kernel...');
+            
+            fetch('/debug-neural/upload-audio', { method: 'POST', body: formData })
+                .then(r => r.json())
+                .then(d => addTermLine('vad', `>> UPLOAD_SUCCESS: ${d.bytes} bytes processed.`));
+
             isRecording = false;
             talkBtn.classList.remove('recording');
-            micStatus.innerText = 'IO_STATE: SYNCED';
-            addTermLine('vad', '>> DONE: Buffer flushed.');
+            micStatus.innerText = '[OS_IDLE]';
         }
     };
 </script>
-{% endblock %}
+</body>
+</html>
