@@ -210,82 +210,78 @@
         document.getElementById('sim-text').value = '';
     }
 
-    // Microphone logic (Record & Send)
+    // RAW PCM Recording logic
+    let audioContext;
+    let processor;
+    let input;
     let isRecording = false;
-    let audioChunks = [];
 
     talkBtn.onclick = async () => {
         if (!window.isSecureContext && window.location.hostname !== 'localhost') {
-            addLog('SYSTEM', 'ERRO: Microfone bloqueado em conexões HTTP. Use localhost ou configure HTTPS.', 'error');
-            alert("Acesso ao microfone negado: Navegadores bloqueiam áudio em IPs sem HTTPS (ex: http://192...).");
+            alert("Erro de Segurança: O microfone exige HTTPS ou localhost.");
             return;
         }
 
         if (!isRecording) {
             try {
-                addLog('SYSTEM', 'Solicitando acesso ao microfone...', 'info');
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                input = audioContext.createMediaStreamSource(stream);
                 
-                // Try to find a supported mimeType
-                const types = ['audio/webm', 'audio/ogg', 'audio/mp4', ''];
-                let supportedType = '';
-                for (const t of types) {
-                    if (MediaRecorder.isTypeSupported(t)) {
-                        supportedType = t;
-                        break;
+                // Buffer to store PCM samples
+                const pcmBuffer = [];
+                
+                processor = audioContext.createScriptProcessor(4096, 1, 1);
+                processor.onaudioprocess = (e) => {
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    // Convert Float32 to Int16 (RAW PCM)
+                    const pcm16 = new Int16Array(inputData.length);
+                    for (let i = 0; i < inputData.length; i++) {
+                        pcm16[i] = Math.max(-1, Math.min(1, inputData[i])) * 0x7FFF;
                     }
-                }
-                
-                mediaRecorder = new MediaRecorder(stream, supportedType ? { mimeType: supportedType } : {});
-                audioChunks = [];
-                
-                mediaRecorder.ondataavailable = (e) => {
-                    if (e.data.size > 0) audioChunks.push(e.data);
+                    pcmBuffer.push(...pcm16);
                 };
 
-                mediaRecorder.onstop = async () => {
-                    const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
-                    micStatus.innerText = 'UPLOADING...';
-                    addLog('SYSTEM', `Gravado: ${Math.round(audioBlob.size / 1024)}KB. Enviando...`, 'info');
-                    
-                    const formData = new FormData();
-                    formData.append('file', audioBlob, 'command.audio');
-                    
-                    try {
-                        const resp = await fetch('/debug-neural/upload-audio', {
-                            method: 'POST',
-                            body: formData
-                        });
-                        const res = await resp.json();
-                        if (res.status === 'ok') {
-                            addLog('SYSTEM', `Sucesso: ${res.bytes} bytes injetados na pipeline`, 'info');
-                        } else {
-                            addLog('SYSTEM', `Erro no servidor: ${res.message}`, 'error');
-                        }
-                        micStatus.innerText = 'Ready';
-                    } catch (err) {
-                        addLog('SYSTEM', 'Erro de conexão no upload: ' + err, 'error');
-                        micStatus.innerText = 'Ready';
-                    }
-                };
+                input.connect(processor);
+                processor.connect(audioContext.destination);
 
-                mediaRecorder.start();
                 isRecording = true;
                 micIcon.className = 'fas fa-stop';
-                micIcon.style.color = '#ef4444'; // Red for stop
-                micStatus.innerText = 'RECORDING...';
+                micIcon.style.color = '#ef4444';
+                micStatus.innerText = 'LISTENING (PCM)...';
                 talkBtn.style.background = 'rgba(239, 68, 68, 0.1)';
-                addLog('SYSTEM', 'Gravando áudio... fale agora!', 'info');
+                addLog('SYSTEM', 'Gravando PCM 16kHz Mono...', 'info');
+
+                // Store buffer reference to send later
+                window._currentBuffer = pcmBuffer;
             } catch (err) {
-                addLog('SYSTEM', 'Falha no microfone: ' + err, 'error');
-                console.error(err);
+                addLog('SYSTEM', 'Erro Mic: ' + err, 'error');
             }
         } else {
-            mediaRecorder.stop();
-            mediaRecorder.stream.getTracks().forEach(t => t.stop());
+            // STOP AND UPLOAD
+            processor.disconnect();
+            input.disconnect();
+            audioContext.close();
+            
+            const pcmData = new Int16Array(window._currentBuffer);
+            const blob = new Blob([pcmData.buffer], { type: 'application/octet-stream' });
+            
+            micStatus.innerText = 'UPLOADING...';
+            const formData = new FormData();
+            formData.append('file', blob, 'command.raw');
+            
+            try {
+                const resp = await fetch('/debug-neural/upload-audio', { method: 'POST', body: formData });
+                const res = await resp.json();
+                addLog('SYSTEM', `Pipeline Injected: ${res.bytes} bytes (Raw PCM)`, 'info');
+            } catch (err) {
+                addLog('SYSTEM', 'Upload Error: ' + err, 'error');
+            }
+
             isRecording = false;
             micIcon.className = 'fas fa-microphone';
             micIcon.style.color = 'var(--text-dim)';
+            micStatus.innerText = 'Ready';
             talkBtn.style.background = 'rgba(255,255,255,0.05)';
         }
     };
