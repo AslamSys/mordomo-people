@@ -106,57 +106,86 @@
             <button onclick="simulate()" class="btn btn-primary">SIMULAR FLUXO</button>
         </div>
         
-        <div class="glass-card" style="display: flex; align-items: center; justify-content: center; gap: 15px; padding: 0 20px;">
-            <div id="mic-status" style="font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px;">Ready</div>
-            <button id="talk-btn" class="btn" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border); width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s;">
-                <i id="mic-icon" class="fas fa-microphone" style="color: var(--text-dim);"></i>
-            </button>
+<div class="monitor-header">
+    <div>
+        <h1 style="margin:0; font-size: 1.2rem;">Mordomo Neural Pipeline</h1>
+        <div id="mic-status" style="font-size: 0.8rem; color: var(--text-dim);">System Ready</div>
+    </div>
+    <div style="display: flex; gap: 1rem;">
+        <button onclick="document.getElementById('log-stream').innerHTML=''" style="background:none; border: 1px solid var(--border-color); color: var(--text-dim); cursor:pointer; padding: 4px 12px; border-radius: 4px;">Clear Logs</button>
+    </div>
+</div>
+
+<div style="display: flex; flex: 1; overflow: hidden;">
+    <div class="pipeline-grid">
+        <!-- 1. VAD -->
+        <div id="card-vad" class="pipeline-card" style="--active-color: var(--vad-color); --glow-color: rgba(59,130,246,0.15);">
+            <div class="card-title"><i class="fas fa-microphone"></i> 01. CAPTAÇÃO (VAD) <div class="status-dot"></div></div>
+            <div class="card-content">Aguardando áudio...</div>
+        </div>
+
+        <!-- 2. WAKE WORD -->
+        <div id="card-wake" class="pipeline-card" style="--active-color: var(--wake-color); --glow-color: rgba(245,158,11,0.15);">
+            <div class="card-title"><i class="fas fa-bolt"></i> 02. ATIVAÇÃO <div class="status-dot"></div></div>
+            <div class="card-content">Ouvindo palavra-chave...</div>
+        </div>
+
+        <!-- 3. BIO -->
+        <div id="card-bio" class="pipeline-card" style="--active-color: var(--bio-color); --glow-color: rgba(217,70,239,0.15);">
+            <div class="card-title"><i class="fas fa-id-card"></i> 03. BIOMETRIA <div class="status-dot"></div></div>
+            <div class="card-content">Inativo</div>
+        </div>
+
+        <!-- 4. ASR -->
+        <div id="card-asr" class="pipeline-card" style="--active-color: var(--asr-color); --glow-color: rgba(16,185,129,0.15);">
+            <div class="card-title"><i class="fas fa-font"></i> 04. OUVINTE (ASR) <div class="status-dot"></div></div>
+            <div class="card-content">...</div>
+        </div>
+
+        <!-- 5. ORCHESTRATOR -->
+        <div id="card-orch" class="pipeline-card" style="--active-color: var(--orch-color); --glow-color: rgba(139,92,246,0.15);">
+            <div class="card-title"><i class="fas fa-route"></i> 05. COMANDO <div class="status-dot"></div></div>
+            <div class="card-content">Aguardando rota...</div>
+        </div>
+
+        <!-- 6. BRAIN -->
+        <div id="card-brain" class="pipeline-card" style="--active-color: var(--brain-color); --glow-color: rgba(99,102,241,0.15);">
+            <div class="card-title"><i class="fas fa-brain"></i> 06. PENSAMENTO <div class="status-dot"></div></div>
+            <div class="card-content">Ocioso</div>
+        </div>
+
+        <!-- 7. ACTION -->
+        <div id="card-action" class="pipeline-card" style="--active-color: var(--action-color); --glow-color: rgba(239,68,68,0.15);">
+            <div class="card-title"><i class="fas fa-project-diagram"></i> 07. SISTEMA <div class="status-dot"></div></div>
+            <div class="card-content">Sem ações</div>
+        </div>
+
+        <!-- 8. TTS -->
+        <div id="card-tts" class="pipeline-card" style="--active-color: var(--tts-color); --glow-color: rgba(249,115,22,0.15);">
+            <div class="card-title"><i class="fas fa-volume-up"></i> 08. RESPOSTA <div class="status-dot"></div></div>
+            <div class="card-content">Silêncio</div>
         </div>
     </div>
 
-    <div class="monitor-grid">
-        <!-- VAD -->
-        <div id="card-vad" class="pipeline-card" style="--active-color: var(--vad-color); --glow-color: rgba(59,130,246,0.1);">
-            <div class="status-light"></div>
-            <h3>Detecção de Voz (VAD)</h3>
-            <div id="val-vad" style="font-size: 0.9rem; min-height: 40px;">Aguardando silêncio...</div>
-        </div>
-
-        <!-- ASR -->
-        <div id="card-asr" class="pipeline-card" style="--active-color: var(--asr-color); --glow-color: rgba(139,92,246,0.1);">
-            <div class="status-light"></div>
-            <h3>Transcrição (ASR)</h3>
-            <div id="val-asr" style="font-size: 1.1rem; font-weight: bold; min-height: 40px;">...</div>
-        </div>
-
-        <!-- BRAIN -->
-        <div id="card-brain" class="pipeline-card" style="--active-color: var(--brain-color); --glow-color: rgba(16,185,129,0.1);">
-            <div class="status-light"></div>
-            <h3>Cérebro (Brain)</h3>
-            <div id="val-brain" style="font-size: 0.9rem; min-height: 40px;">Pensando...</div>
-        </div>
-
-        <!-- TTS -->
-        <div id="card-tts" class="pipeline-card" style="--active-color: var(--tts-color); --glow-color: rgba(245,158,11,0.1);">
-            <div class="status-light"></div>
-            <h3>Resposta de Voz (TTS)</h3>
-            <div id="val-tts" style="font-size: 0.9rem; min-height: 40px;">Sintetizando...</div>
-        </div>
+    <div class="log-container">
+        <div class="log-header">LIVE NATS STREAM</div>
+        <div id="log-stream" class="log-stream"></div>
     </div>
+</div>
 
-    <div class="log-stream" id="log-stream">
-        <div class="log-entry"><span class="log-topic">SYSTEM</span> Real-time monitor connected. Watching mordomo.</div>
+<div class="controls-panel">
+    <button class="talk-button" id="talk-btn">
+        <i id="mic-icon" class="fas fa-microphone"></i>
+    </button>
+    <div style="flex:1">
+        <input type="text" id="sim-text" placeholder="Simular comando de texto..." style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: white; padding: 12px; border-radius: 8px;">
     </div>
+    <button onclick="simulate()" style="background: var(--accent); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer;">Enviar Simulação</button>
 </div>
 
 <script>
     const logStream = document.getElementById('log-stream');
     const ws = new WebSocket(`ws://${window.location.host}/debug-neural/ws`);
-    
-    let mediaRecorder;
-    const talkBtn = document.getElementById('talk-btn');
-    const micIcon = document.getElementById('mic-icon');
-    const micStatus = document.getElementById('mic-status');
 
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
@@ -166,48 +195,56 @@
     function addLog(topic, msg, type = 'info') {
         const entry = document.createElement('div');
         entry.className = `log-entry log-${type}`;
-        
         let displayMsg = (typeof msg === 'object') ? JSON.stringify(msg) : msg;
-        
-        // Clean up common topic prefixes for logs
         const shortTopic = topic.replace('mordomo.', '').toUpperCase();
-        
         entry.innerHTML = `<span class="log-topic">${shortTopic}</span> ${displayMsg}`;
         logStream.prepend(entry);
-        if (logStream.childNodes.length > 50) logStream.removeChild(logStream.lastChild);
+        if (logStream.childNodes.length > 100) logStream.removeChild(logStream.lastChild);
+    }
+
+    function flashCard(id) {
+        const card = document.getElementById('card-' + id);
+        card.classList.remove('flash');
+        void card.offsetWidth; // Trigger reflow
+        card.classList.add('flash');
     }
 
     function processNeuralMessage(topic, payload) {
-        // High-level log first
         const logType = topic.includes('error') ? 'error' : (topic.includes('transcribed') ? 'success' : 'info');
         addLog(topic, payload, logType);
 
-        if (topic.includes('verified') || (topic.includes('speech') && !topic.includes('tts'))) {
-            document.querySelectorAll('.pipeline-card').forEach(c => c.classList.remove('active'));
-        }
-
-        if (topic.includes('verified')) {
-            activateCard('vad', `👤 ${payload.speaker_id || 'User'} Identificado!`);
+        if (topic.includes('audio.stream')) {
+            activateCard('vad', 'Recebendo stream...');
+            flashCard('vad');
+        } else if (topic.includes('wake_word.detected')) {
+            activateCard('wake', `Detecção: ${payload.keyword} (${Math.round(payload.confidence*100)}%)`);
+            flashCard('wake');
+        } else if (topic.includes('speaker.verified')) {
+            activateCard('bio', `👤 ${payload.speaker_id}`);
+            flashCard('bio');
         } else if (topic.includes('speech.transcribed')) {
-            activateCard('asr', payload.text || 'Ouvindo...');
-            activateCard('vad', '🗣️ Fala Detectada');
+            activateCard('asr', payload.text);
+            flashCard('asr');
+        } else if (topic.includes('orchestrator.request')) {
+            activateCard('orch', 'Roteando comando...');
+            flashCard('orch');
         } else if (topic.includes('brain.action')) {
-            let actionText = 'Executando comando...';
-            if (payload.type === 'iot_control') {
-                actionText = `💡 IoT: ${payload.command} (${payload.device_id})`;
-            }
-            activateCard('brain', actionText);
+            let actionText = payload.type === 'iot_control' ? `💡 IoT: ${payload.command} em ${payload.device_id}` : 'Ação disparada';
+            activateCard('action', actionText);
+            flashCard('action');
         } else if (topic.includes('brain.response')) {
-            activateCard('brain', payload.text || 'Resposta gerada');
+            activateCard('brain', payload.text);
+            flashCard('brain');
         } else if (topic.includes('tts.status')) {
             const isSpeaking = payload.state === 'started';
             activateCard('tts', isSpeaking ? '📢 ' + (payload.text || 'Falando...') : '✅ Concluído');
+            flashCard('tts');
         }
     }
 
     function activateCard(id, text) {
         const card = document.getElementById('card-' + id);
-        const val = card.querySelector('div:not(.status-light)');
+        const val = card.querySelector('.card-content');
         card.classList.add('active');
         val.innerText = text;
     }
@@ -224,6 +261,9 @@
     let processor;
     let input;
     let isRecording = false;
+    const talkBtn = document.getElementById('talk-btn');
+    const micIcon = document.getElementById('mic-icon');
+    const micStatus = document.getElementById('mic-status');
 
     talkBtn.onclick = async () => {
         if (!window.isSecureContext && window.location.hostname !== 'localhost') {
@@ -236,14 +276,11 @@
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
                 input = audioContext.createMediaStreamSource(stream);
-                
-                // Buffer to store PCM samples
                 const pcmBuffer = [];
-                
                 processor = audioContext.createScriptProcessor(4096, 1, 1);
+                
                 processor.onaudioprocess = (e) => {
                     const inputData = e.inputBuffer.getChannelData(0);
-                    // Convert Float32 to Int16 (RAW PCM)
                     const pcm16 = new Int16Array(inputData.length);
                     for (let i = 0; i < inputData.length; i++) {
                         pcm16[i] = Math.max(-1, Math.min(1, inputData[i])) * 0x7FFF;
@@ -253,32 +290,24 @@
 
                 input.connect(processor);
                 processor.connect(audioContext.destination);
-
                 isRecording = true;
                 micIcon.className = 'fas fa-stop';
                 micIcon.style.color = '#ef4444';
                 micStatus.innerText = 'LISTENING (PCM)...';
-                talkBtn.style.background = 'rgba(239, 68, 68, 0.1)';
                 addLog('SYSTEM', 'Gravando PCM 16kHz Mono...', 'info');
-
-                // Store buffer reference to send later
                 window._currentBuffer = pcmBuffer;
             } catch (err) {
                 addLog('SYSTEM', 'Erro Mic: ' + err, 'error');
             }
         } else {
-            // STOP AND UPLOAD
             processor.disconnect();
             input.disconnect();
             audioContext.close();
-            
             const pcmData = new Int16Array(window._currentBuffer);
             const blob = new Blob([pcmData.buffer], { type: 'application/octet-stream' });
-            
             micStatus.innerText = 'UPLOADING...';
             const formData = new FormData();
             formData.append('file', blob, 'command.raw');
-            
             try {
                 const resp = await fetch('/debug-neural/upload-audio', { method: 'POST', body: formData });
                 const res = await resp.json();
@@ -286,12 +315,10 @@
             } catch (err) {
                 addLog('SYSTEM', 'Upload Error: ' + err, 'error');
             }
-
             isRecording = false;
             micIcon.className = 'fas fa-microphone';
             micIcon.style.color = 'var(--text-dim)';
             micStatus.innerText = 'Ready';
-            talkBtn.style.background = 'rgba(255,255,255,0.05)';
         }
     };
 </script>
