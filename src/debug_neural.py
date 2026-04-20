@@ -30,15 +30,36 @@ async def monitor_page(request: Request):
 
 @app.post("/upload-audio")
 async def upload_audio(file: UploadFile = File(...)):
-    """Accepts a full audio file and streams it into the pipeline in chunks."""
+    """Accepts full audio, simulates activation sequence, and streams it."""
     try:
         audio_bytes = await file.read()
-        logger.info(f"DEBUG: Received audio upload ({len(audio_bytes)} bytes). Streaming...")
+        logger.info(f"DEBUG: Received audio upload ({len(audio_bytes)} bytes). Starting full simulation...")
         
         client = await get_nc()
         if not client.is_connected:
             return {"status": "error", "message": "NATS not connected"}
 
+        # 1. Generate Fake Session
+        session_id = f"debug-session-{int(time.time())}"
+        
+        # 2. Simulate Wake Word (Wait for ASR to prepare)
+        await client.publish("mordomo.wake_word.detected", json.dumps({
+            "timestamp": time.time(),
+            "confidence": 0.99,
+            "keyword": "mordomo",
+            "session_id": session_id
+        }).encode())
+        await asyncio.sleep(0.1)
+
+        # 3. Simulate Speaker Verification (Authorize ASR)
+        await client.publish("mordomo.speaker.verified", json.dumps({
+            "speaker_id": "Renan",
+            "confidence": 0.95,
+            "session_id": session_id
+        }).encode())
+        await asyncio.sleep(0.1)
+
+        # 4. Stream Raw PCM Audio
         chunk_size = 4096
         for i in range(0, len(audio_bytes), chunk_size):
             chunk = audio_bytes[i:i + chunk_size]
@@ -46,9 +67,9 @@ async def upload_audio(file: UploadFile = File(...)):
             await asyncio.sleep(0.01) 
             
         await client.flush()
-        return {"status": "ok", "bytes": len(audio_bytes)}
+        return {"status": "ok", "bytes": len(audio_bytes), "session_id": session_id}
     except Exception as e:
-        logger.error(f"DEBUG: Streaming failed: {e}")
+        logger.error(f"DEBUG: Simulation failed: {e}")
         return {"status": "error", "message": str(e)}
 
 @app.websocket("/ws")
