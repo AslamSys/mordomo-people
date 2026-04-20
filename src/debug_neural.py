@@ -32,8 +32,9 @@ async def upload_audio(file: UploadFile = File(...)):
     try:
         audio_bytes = await file.read()
         logger.info(f"DEBUG: Received audio upload ({len(audio_bytes)} bytes). Publishing to NATS.")
-        # Publish to the main stream as if it were a high-quality capture
+        # Flush to ensure buffer doesn't overflow
         await nc.publish("mordomo.audio.stream", audio_bytes)
+        await nc.flush()
         return {"status": "ok", "bytes": len(audio_bytes)}
     except Exception as e:
         logger.error(f"DEBUG: Upload failed: {e}")
