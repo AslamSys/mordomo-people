@@ -313,8 +313,11 @@
     }
 
     function processSignal(topic, payload) {
+        // Broad logging for all mordomo topics to keep terminals alive
+        const logType = topic.includes('error') ? 'error' : (topic.includes('transcribed') ? 'success' : 'info');
+        
         if (topic.includes('audio.stream')) {
-            addTermLine('vad', `>> BYTES_RCV [${payload.length || 'RAW'}]`);
+            addTermLine('vad', `>> BYTES_RCV: [${payload.length || 'RAW'}]`);
         } else if (topic.includes('wake_word.detected')) {
             addTermLine('wake', `>> DETECTED: [${payload.keyword}] CONF=${payload.confidence}`);
         } else if (topic.includes('speaker.verified')) {
@@ -323,17 +326,20 @@
             const mode = payload.is_final ? 'TRANSCRIBED' : 'STREAMING';
             addTermLine('asr', `>> ${mode}: "${payload.text}"`);
         } else if (topic.includes('orchestrator.request')) {
-            addTermLine('orch', `>> EVENT_ROUTED: type=speech_intent`);
-            addTermLine('gateway', `>> CALLING_GATEWAY: model=gemini-flash-2.0`);
-            addTermLine('brain', `>> THINKING: processing intent...`);
+            addTermLine('orch', `>> INBOUND_REQ: text="${payload.text}"`);
+        } else if (topic.includes('llm.gateway')) {
+            addTermLine('gateway', `>> CALL: ${payload.action || 'api'} (STATUS: ${payload.status})`);
+        } else if (topic.includes('brain.thought')) {
+            addTermLine('brain', `>> THINKING: tier=${payload.tier} intents=${JSON.stringify(payload.intents)}`);
         } else if (topic.includes('brain.action')) {
             addTermLine('actions', `>> SYSCALL: ${payload.type} (TARGET=${payload.device_id || 'system'})`);
-            addTermLine('brain', `>> ACTION_DECIDED: ${payload.type}`);
         } else if (topic.includes('brain.response')) {
             addTermLine('brain', `>> RESPONSE: "${payload.text}"`);
-            addTermLine('gateway', `>> GATEWAY_RETURN: 200 OK`);
         } else if (topic.includes('tts.status')) {
-            addTermLine('tts', `>> STATE: ${payload.state.toUpperCase()}`);
+            const status = payload.status || payload.state || 'active';
+            addTermLine('tts', `>> STATE: ${status.toUpperCase()}`);
+        } else if (topic.includes('orchestrator')) {
+            addTermLine('orch', `>> SYSTEM: ${JSON.stringify(payload)}`);
         }
     }
 
