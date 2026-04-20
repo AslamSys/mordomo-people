@@ -28,16 +28,23 @@ async def monitor_page(request: Request):
 
 @app.post("/upload-audio")
 async def upload_audio(file: UploadFile = File(...)):
-    """Accepts a full audio file and pushes it to the voice pipeline."""
+    """Accepts a full audio file and streams it into the pipeline in chunks."""
     try:
         audio_bytes = await file.read()
-        logger.info(f"DEBUG: Received audio upload ({len(audio_bytes)} bytes). Publishing to NATS.")
-        # Flush to ensure buffer doesn't overflow
-        await nc.publish("mordomo.audio.stream", audio_bytes)
+        logger.info(f"DEBUG: Received audio upload ({len(audio_bytes)} bytes). Streaming in chunks...")
+        
+        # 4KB chunks
+        chunk_size = 4096
+        for i in range(0, len(audio_bytes), chunk_size):
+            chunk = audio_bytes[i:i + chunk_size]
+            await nc.publish("mordomo.audio.stream", chunk)
+            # Small delay to simulate real-time streaming and prevent NATS congestion
+            await asyncio.sleep(0.01) 
+            
         await nc.flush()
-        return {"status": "ok", "bytes": len(audio_bytes)}
+        return {"status": "ok", "bytes": len(audio_bytes), "chunks": (len(audio_bytes) // chunk_size) + 1}
     except Exception as e:
-        logger.error(f"DEBUG: Upload failed: {e}")
+        logger.error(f"DEBUG: Streaming failed: {e}")
         return {"status": "error", "message": str(e)}
 
 @app.websocket("/ws")
