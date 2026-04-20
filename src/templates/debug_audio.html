@@ -1,252 +1,299 @@
-{% extends "base.html" %}
-
-{% block title %}Neural Pipeline Monitor{% endblock %}
-
-{% block extra_css %}
+{% extends "layout.html" %}
+{% block content %}
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+
     :root {
-        --vad-color: #3b82f6;
-        --asr-color: #8b5cf6;
-        --brain-color: #10b981;
-        --tts-color: #f59e0b;
+        --bg-color: #05070a;
+        --term-bg: #0c0e14;
+        --term-border: #1e293b;
+        --term-header: #1a1d26;
+        --neon-green: #00ff41;
+        --text-dim: #64748b;
+        --text-main: #d1d5db;
     }
 
-    .monitor-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 25px;
-        margin-top: 40px;
-    }
-
-    .pipeline-card {
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid var(--border);
-        border-radius: 20px;
-        padding: 30px;
-        position: relative;
-        overflow: hidden;
-        transition: 0.4s;
-    }
-
-    .pipeline-card.active {
-        border-color: var(--active-color);
-        background: rgba(255, 255, 255, 0.05);
-        box-shadow: 0 0 30px var(--glow-color);
-    }
-
-    .pipeline-card h3 {
-        font-size: 0.8rem;
-        text-transform: uppercase;
-        letter-spacing: 2px;
-        color: var(--text-dim);
-        margin-bottom: 20px;
-    }
-
-    .status-light {
-        position: absolute;
-        top: 15px;
-        right: 15px;
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        background: #333;
-    }
-
-    .active .status-light {
-        background: var(--active-color);
-        box-shadow: 0 0 10px var(--active-color);
-        animation: pulse 1.5s infinite;
-    }
-
-    @keyframes pulse {
-        0% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.5); opacity: 0.5; }
-        100% { transform: scale(1); opacity: 1; }
-    }
-
-    .log-stream {
-        margin-top: 40px;
-        background: #000;
-        border-radius: 15px;
-        padding: 20px;
-        font-family: 'Courier New', monospace;
-        font-size: 0.85rem;
-        color: #10b981;
-        height: 300px;
-        overflow-y: auto;
-        border: 1px solid #10b98133;
-    }
-
-    .log-entry { margin-bottom: 5px; border-bottom: 1px solid #ffffff05; padding: 5px 0; }
-    .log-topic { color: #3b82f6; font-weight: bold; margin-right: 10px; }
-
-    .sim-panel {
-        margin-top: 40px;
+    body {
+        background: var(--bg-color);
+        color: var(--text-main);
+        font-family: 'Fira Code', monospace;
+        margin: 0;
+        height: 100vh;
         display: flex;
-        gap: 15px;
+        flex-direction: column;
+    }
+
+    .monitor-env {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        padding: 20px;
+        box-sizing: border-box;
+        overflow-y: auto;
+    }
+
+    .terminal-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        margin-bottom: 100px;
+    }
+
+    .terminal-window {
+        background: var(--term-bg);
+        border: 1px solid var(--term-border);
+        border-radius: 6px;
+        display: flex;
+        flex-direction: column;
+        height: 250px;
+        transition: all 0.2s;
+        position: relative;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+
+    .terminal-window.active-flash {
+        animation: scanline 0.5s ease-out;
+        border-color: var(--neon-green);
+        box-shadow: 0 0 20px rgba(0, 255, 65, 0.15);
+    }
+
+    @keyframes scanline {
+        0% { filter: brightness(1); }
+        50% { filter: brightness(1.6); }
+        100% { filter: brightness(1); }
+    }
+
+    .term-header {
+        background: var(--term-header);
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--term-border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-dim);
+    }
+
+    .term-controls { display: flex; gap: 6px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #333; }
+    .dot.red { background: #ff5f56; }
+    .dot.yellow { background: #ffbd2e; }
+    .dot.green { background: #27c93f; }
+
+    .term-body {
+        flex: 1;
+        padding: 12px;
+        font-size: 12px;
+        overflow-y: auto;
+        color: var(--neon-green);
+        scrollbar-width: thin;
+        scrollbar-color: var(--term-border) transparent;
+    }
+
+    .term-line { margin-bottom: 6px; line-height: 1.4; }
+    .term-timestamp { color: #008f11; font-size: 10px; margin-right: 8px; }
+
+    /* Action bar at the bottom */
+    .action-bar {
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        background: #0a0c12;
+        border-top: 1px solid var(--term-border);
+        padding: 20px 40px;
+        display: flex;
+        align-items: center;
+        gap: 25px;
+        z-index: 9999;
+    }
+
+    .mic-trigger {
+        width: 54px; height: 54px;
+        border-radius: 50%;
+        border: 2px solid var(--term-border);
+        background: rgba(255,255,255,0.02);
+        color: var(--text-dim);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        transition: 0.3s;
+    }
+    .mic-trigger.recording { 
+        color: var(--neon-green); 
+        border-color: var(--neon-green); 
+        box-shadow: 0 0 15px var(--neon-green);
+        animation: pulse-mic 1.5s infinite;
+    }
+
+    @keyframes pulse-mic {
+        0% { opacity: 1; }
+        50% { opacity: 0.6; }
+        100% { opacity: 1; }
+    }
+
+    .sim-input {
+        flex: 1;
+        background: #000;
+        border: 1px solid var(--term-border);
+        padding: 12px 18px;
+        border-radius: 6px;
+        color: var(--neon-green);
+        font-family: 'Fira Code', monospace;
+        font-size: 14px;
+    }
+    .sim-input:focus { outline: none; border-color: var(--neon-green); }
+
+    .btn-send {
+        background: var(--neon-green);
+        color: black;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 6px;
+        font-weight: bold;
+        cursor: pointer;
+        font-family: inherit;
+        text-transform: uppercase;
+        letter-spacing: 1px;
     }
 </style>
-{% endblock %}
 
-{% block content %}
-<div class="container" style="padding: 100px 0;">
-    <div style="display: flex; justify-content: space-between; align-items: start;">
+<div class="monitor-env">
+    <div style="margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid var(--term-border); padding-bottom: 10px;">
         <div>
-            <span class="section-label" style="color: var(--asr-color);">NEURAL OBSERVABILITY</span>
-            <h1 style="font-size: 3rem;">Pipeline Monitor</h1>
-            <p style="color: var(--text-dim); max-width: 600px;">Acompanhe o fluxo de mensagens entre os serviços de áudio e o cérebro em tempo real.</p>
+            <h1 style="margin:0; font-size: 1.6rem; color: var(--neon-green); letter-spacing: -1px;">MORDOMO_NEURAL_KERNEL</h1>
+            <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Real-time Pipeline Matrix v5.0.4</div>
         </div>
-        <a href="/" class="btn btn-outline">⬅ VOLTAR AO HUB</a>
+        <div id="conn-status" style="font-size: 0.75rem; color: var(--neon-green);">STATUS: OK_SYNC</div>
     </div>
 
-    <!-- Simulação Manual e Microfone -->
-    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 25px; margin-top: 40px;">
-        <div class="glass-card sim-panel" style="margin: 0; align-items: center;">
-            <input type="text" id="sim-text" class="input-field" placeholder="Simular comando de texto (Ex: 'acender luz cozinha')..." style="margin: 0;">
-            <button onclick="simulate()" class="btn btn-primary">SIMULAR FLUXO</button>
-        </div>
-        
-<div class="monitor-header">
-    <div>
-        <h1 style="margin:0; font-size: 1.2rem;">Mordomo Neural Pipeline</h1>
-        <div id="mic-status" style="font-size: 0.8rem; color: var(--text-dim);">System Ready</div>
-    </div>
-    <div style="display: flex; gap: 1rem;">
-        <button onclick="document.getElementById('log-stream').innerHTML=''" style="background:none; border: 1px solid var(--border-color); color: var(--text-dim); cursor:pointer; padding: 4px 12px; border-radius: 4px;">Clear Logs</button>
-    </div>
-</div>
-
-<div style="display: flex; flex: 1; overflow: hidden;">
-    <div class="pipeline-grid">
-        <!-- 1. VAD -->
-        <div id="card-vad" class="pipeline-card" style="--active-color: var(--vad-color); --glow-color: rgba(59,130,246,0.15);">
-            <div class="card-title"><i class="fas fa-microphone"></i> 01. CAPTAÇÃO (VAD) <div class="status-dot"></div></div>
-            <div class="card-content">Aguardando áudio...</div>
+    <div class="terminal-grid">
+        <!-- Row 1 -->
+        <div id="term-vad" class="terminal-window">
+            <div class="term-header">
+                <div class="term-controls"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
+                <span>capture.vad</span><div>_ □ x</div>
+            </div>
+            <div class="term-body" id="body-vad"></div>
         </div>
 
-        <!-- 2. WAKE WORD -->
-        <div id="card-wake" class="pipeline-card" style="--active-color: var(--wake-color); --glow-color: rgba(245,158,11,0.15);">
-            <div class="card-title"><i class="fas fa-bolt"></i> 02. ATIVAÇÃO <div class="status-dot"></div></div>
-            <div class="card-content">Ouvindo palavra-chave...</div>
+        <div id="term-wake" class="terminal-window">
+            <div class="term-header">
+                <div class="term-controls"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
+                <span>detector.wakeword</span><div>_ □ x</div>
+            </div>
+            <div class="term-body" id="body-wake"></div>
         </div>
 
-        <!-- 3. BIO -->
-        <div id="card-bio" class="pipeline-card" style="--active-color: var(--bio-color); --glow-color: rgba(217,70,239,0.15);">
-            <div class="card-title"><i class="fas fa-id-card"></i> 03. BIOMETRIA <div class="status-dot"></div></div>
-            <div class="card-content">Inativo</div>
+        <div id="term-bio" class="terminal-window">
+            <div class="term-header">
+                <div class="term-controls"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
+                <span>idserv.biometrics</span><div>_ □ x</div>
+            </div>
+            <div class="term-body" id="body-bio"></div>
         </div>
 
-        <!-- 4. ASR -->
-        <div id="card-asr" class="pipeline-card" style="--active-color: var(--asr-color); --glow-color: rgba(16,185,129,0.15);">
-            <div class="card-title"><i class="fas fa-font"></i> 04. OUVINTE (ASR) <div class="status-dot"></div></div>
-            <div class="card-content">...</div>
+        <!-- Row 2 -->
+        <div id="term-asr" class="terminal-window">
+            <div class="term-header">
+                <div class="term-controls"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
+                <span>listener.asr</span><div>_ □ x</div>
+            </div>
+            <div class="term-body" id="body-asr"></div>
         </div>
 
-        <!-- 5. ORCHESTRATOR -->
-        <div id="card-orch" class="pipeline-card" style="--active-color: var(--orch-color); --glow-color: rgba(139,92,246,0.15);">
-            <div class="card-title"><i class="fas fa-route"></i> 05. COMANDO <div class="status-dot"></div></div>
-            <div class="card-content">Aguardando rota...</div>
+        <div id="term-orch" class="terminal-window">
+            <div class="term-header">
+                <div class="term-controls"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
+                <span>orchestrator.bus</span><div>_ □ x</div>
+            </div>
+            <div class="term-body" id="body-orch"></div>
         </div>
 
-        <!-- 6. BRAIN -->
-        <div id="card-brain" class="pipeline-card" style="--active-color: var(--brain-color); --glow-color: rgba(99,102,241,0.15);">
-            <div class="card-title"><i class="fas fa-brain"></i> 06. PENSAMENTO <div class="status-dot"></div></div>
-            <div class="card-content">Ocioso</div>
+        <div id="term-brain" class="terminal-window">
+            <div class="term-header">
+                <div class="term-controls"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
+                <span>neural.brain.llm</span><div>_ □ x</div>
+            </div>
+            <div class="term-body" id="body-brain"></div>
         </div>
 
-        <!-- 7. ACTION -->
-        <div id="card-action" class="pipeline-card" style="--active-color: var(--action-color); --glow-color: rgba(239,68,68,0.15);">
-            <div class="card-title"><i class="fas fa-project-diagram"></i> 07. SISTEMA <div class="status-dot"></div></div>
-            <div class="card-content">Sem ações</div>
+        <!-- Row 3 -->
+        <div id="term-actions" class="terminal-window">
+            <div class="term-header">
+                <div class="term-controls"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
+                <span>iot.dispatcher</span><div>_ □ x</div>
+            </div>
+            <div class="term-body" id="body-actions"></div>
         </div>
 
-        <!-- 8. TTS -->
-        <div id="card-tts" class="pipeline-card" style="--active-color: var(--tts-color); --glow-color: rgba(249,115,22,0.15);">
-            <div class="card-title"><i class="fas fa-volume-up"></i> 08. RESPOSTA <div class="status-dot"></div></div>
-            <div class="card-content">Silêncio</div>
+        <div id="term-tts" class="terminal-window">
+            <div class="term-header">
+                <div class="term-controls"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
+                <span>audio.tts.engine</span><div>_ □ x</div>
+            </div>
+            <div class="term-body" id="body-tts"></div>
         </div>
-    </div>
-
-    <div class="log-container">
-        <div class="log-header">LIVE NATS STREAM</div>
-        <div id="log-stream" class="log-stream"></div>
     </div>
 </div>
 
-<div class="controls-panel">
-    <button class="talk-button" id="talk-btn">
-        <i id="mic-icon" class="fas fa-microphone"></i>
-    </button>
-    <div style="flex:1">
-        <input type="text" id="sim-text" placeholder="Simular comando de texto..." style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: white; padding: 12px; border-radius: 8px;">
-    </div>
-    <button onclick="simulate()" style="background: var(--accent); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer;">Enviar Simulação</button>
+<div class="action-bar">
+    <button class="mic-trigger" id="talk-btn"><i class="fas fa-microphone"></i></button>
+    <div id="mic-status" style="font-size: 0.75rem; color: var(--text-dim); width: 150px;">IO_STATE: IDLE</div>
+    <input type="text" id="sim-text" class="sim-input" placeholder="root@mordomo:~# [inject sequence here]">
+    <button onclick="simulate()" class="btn-send">EXECUTE</button>
 </div>
 
 <script>
-    const logStream = document.getElementById('log-stream');
     const ws = new WebSocket(`ws://${window.location.host}/debug-neural/ws`);
 
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        processNeuralMessage(data.topic, data.payload);
+        processSignal(data.topic, data.payload);
     };
 
-    function addLog(topic, msg, type = 'info') {
-        const entry = document.createElement('div');
-        entry.className = `log-entry log-${type}`;
-        let displayMsg = (typeof msg === 'object') ? JSON.stringify(msg) : msg;
-        const shortTopic = topic.replace('mordomo.', '').toUpperCase();
-        entry.innerHTML = `<span class="log-topic">${shortTopic}</span> ${displayMsg}`;
-        logStream.prepend(entry);
-        if (logStream.childNodes.length > 100) logStream.removeChild(logStream.lastChild);
+    function addTermLine(id, msg) {
+        const body = document.getElementById('body-' + id);
+        const term = document.getElementById('term-' + id);
+        if (!body) return;
+
+        const line = document.createElement('div');
+        line.className = 'term-line';
+        const ts = new Date().toLocaleTimeString('pt-BR', { hour12: false });
+        line.innerHTML = `<span class="term-timestamp">${ts}</span> ${msg}`;
+        
+        body.appendChild(line);
+        // Limit history for performance
+        if (body.childNodes.length > 30) body.removeChild(body.firstChild);
+        body.scrollTop = body.scrollHeight;
+
+        // Flash Card
+        term.classList.remove('active-flash');
+        void term.offsetWidth;
+        term.classList.add('active-flash');
     }
 
-    function flashCard(id) {
-        const card = document.getElementById('card-' + id);
-        card.classList.remove('flash');
-        void card.offsetWidth; // Trigger reflow
-        card.classList.add('flash');
-    }
-
-    function processNeuralMessage(topic, payload) {
-        const logType = topic.includes('error') ? 'error' : (topic.includes('transcribed') ? 'success' : 'info');
-        addLog(topic, payload, logType);
-
+    function processSignal(topic, payload) {
         if (topic.includes('audio.stream')) {
-            activateCard('vad', 'Recebendo stream...');
-            flashCard('vad');
+            addTermLine('vad', `>> RCV_BLOB: ${payload.length || '?'} samples`);
         } else if (topic.includes('wake_word.detected')) {
-            activateCard('wake', `Detecção: ${payload.keyword} (${Math.round(payload.confidence*100)}%)`);
-            flashCard('wake');
+            addTermLine('wake', `>> DETECTED: "${payload.keyword}" (CONF: ${payload.confidence})`);
         } else if (topic.includes('speaker.verified')) {
-            activateCard('bio', `👤 ${payload.speaker_id}`);
-            flashCard('bio');
+            addTermLine('bio', `>> VERIFIED: ID=${payload.speaker_id} AUTH=YES`);
         } else if (topic.includes('speech.transcribed')) {
-            activateCard('asr', payload.text);
-            flashCard('asr');
+            const mode = payload.is_final ? 'FINAL' : 'LIVE';
+            addTermLine('asr', `>> ${mode}: "${payload.text}"`);
         } else if (topic.includes('orchestrator.request')) {
-            activateCard('orch', 'Roteando comando...');
-            flashCard('orch');
+            addTermLine('orch', `>> ROUTING: inbound text handled.`);
         } else if (topic.includes('brain.action')) {
-            let actionText = payload.type === 'iot_control' ? `💡 IoT: ${payload.command} em ${payload.device_id}` : 'Ação disparada';
-            activateCard('action', actionText);
-            flashCard('action');
+            addTermLine('actions', `>> SYSCALL: ${payload.type} (TARGET=${payload.device_id})`);
         } else if (topic.includes('brain.response')) {
-            activateCard('brain', payload.text);
-            flashCard('brain');
+            addTermLine('brain', `>> RESPONSE: "${payload.text}"`);
         } else if (topic.includes('tts.status')) {
-            const isSpeaking = payload.state === 'started';
-            activateCard('tts', isSpeaking ? '📢 ' + (payload.text || 'Falando...') : '✅ Concluído');
-            flashCard('tts');
+            addTermLine('tts', `>> STATE: ${payload.state.toUpperCase()}`);
         }
-    }
-
-    function activateCard(id, text) {
-        const card = document.getElementById('card-' + id);
-        const val = card.querySelector('.card-content');
-        card.classList.add('active');
-        val.innerText = text;
     }
 
     async function simulate() {
@@ -256,21 +303,12 @@
         document.getElementById('sim-text').value = '';
     }
 
-    // RAW PCM Recording logic
-    let audioContext;
-    let processor;
-    let input;
-    let isRecording = false;
+    // RAW PCM Logic
+    let audioContext, processor, input, isRecording = false;
     const talkBtn = document.getElementById('talk-btn');
-    const micIcon = document.getElementById('mic-icon');
     const micStatus = document.getElementById('mic-status');
 
     talkBtn.onclick = async () => {
-        if (!window.isSecureContext && window.location.hostname !== 'localhost') {
-            alert("Erro de Segurança: O microfone exige HTTPS ou localhost.");
-            return;
-        }
-
         if (!isRecording) {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -278,7 +316,6 @@
                 input = audioContext.createMediaStreamSource(stream);
                 const pcmBuffer = [];
                 processor = audioContext.createScriptProcessor(4096, 1, 1);
-                
                 processor.onaudioprocess = (e) => {
                     const inputData = e.inputBuffer.getChannelData(0);
                     const pcm16 = new Int16Array(inputData.length);
@@ -287,38 +324,25 @@
                     }
                     pcmBuffer.push(...pcm16);
                 };
-
                 input.connect(processor);
                 processor.connect(audioContext.destination);
                 isRecording = true;
-                micIcon.className = 'fas fa-stop';
-                micIcon.style.color = '#ef4444';
-                micStatus.innerText = 'LISTENING (PCM)...';
-                addLog('SYSTEM', 'Gravando PCM 16kHz Mono...', 'info');
+                talkBtn.classList.add('recording');
+                micStatus.innerText = 'IO_STATE: RECORDING';
+                addTermLine('vad', '>> STREAMING: Local Buffer -> NATS');
                 window._currentBuffer = pcmBuffer;
-            } catch (err) {
-                addLog('SYSTEM', 'Erro Mic: ' + err, 'error');
-            }
+            } catch (err) { console.error(err); }
         } else {
-            processor.disconnect();
-            input.disconnect();
-            audioContext.close();
+            processor.disconnect(); input.disconnect(); audioContext.close();
             const pcmData = new Int16Array(window._currentBuffer);
             const blob = new Blob([pcmData.buffer], { type: 'application/octet-stream' });
-            micStatus.innerText = 'UPLOADING...';
             const formData = new FormData();
-            formData.append('file', blob, 'command.raw');
-            try {
-                const resp = await fetch('/debug-neural/upload-audio', { method: 'POST', body: formData });
-                const res = await resp.json();
-                addLog('SYSTEM', `Pipeline Injected: ${res.bytes} bytes (Raw PCM)`, 'info');
-            } catch (err) {
-                addLog('SYSTEM', 'Upload Error: ' + err, 'error');
-            }
+            formData.append('file', blob, 'cmd.raw');
+            fetch('/debug-neural/upload-audio', { method: 'POST', body: formData });
             isRecording = false;
-            micIcon.className = 'fas fa-microphone';
-            micIcon.style.color = 'var(--text-dim)';
-            micStatus.innerText = 'Ready';
+            talkBtn.classList.remove('recording');
+            micStatus.innerText = 'IO_STATE: SYNCED';
+            addTermLine('vad', '>> DONE: Buffer flushed.');
         }
     };
 </script>
