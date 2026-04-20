@@ -43,7 +43,7 @@ async def upload_audio(file: UploadFile = File(...)):
         # 1. Generate Fake Session
         session_id = f"debug-session-{int(time.time())}"
         
-        # 2. Simulate Wake Word (Wait for ASR to prepare)
+        # 2. Simulate Wake Word (Wait for ASR and Bio to prepare)
         await client.publish("mordomo.wake_word.detected", json.dumps({
             "timestamp": time.time(),
             "confidence": 0.99,
@@ -52,12 +52,7 @@ async def upload_audio(file: UploadFile = File(...)):
         }).encode())
         await asyncio.sleep(0.1)
 
-        # 3. Simulate Speaker Verification (Authorize ASR)
-        await client.publish("mordomo.speaker.verified", json.dumps({
-            "speaker_id": "Renan",
-            "confidence": 0.95,
-            "session_id": session_id
-        }).encode())
+        # 3. Stream Audio (Real services will handle verification now)
         await asyncio.sleep(0.1)
 
         # 4. Stream Raw PCM Audio
