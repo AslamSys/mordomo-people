@@ -107,10 +107,10 @@ async def seed_vault():
 async def index(request: Request, user: dict = Depends(get_current_user)):
     admin_count = await get_admin_count()
     if admin_count == 0:
-        return templates.TemplateResponse("welcome.html", {"request": request})
+        return templates.TemplateResponse(request=request, name="welcome.html", context={})
     if not user:
         login_mode = request.query_params.get("login_mode") == "true"
-        return templates.TemplateResponse("welcome.html", {"request": request, "login_mode": login_mode})
+        return templates.TemplateResponse(request=request, name="welcome.html", context={"login_mode": login_mode})
     
     async with _pool_conn() as conn:
         rows = await conn.fetch("SELECT id, name, description, is_owner, whatsapp_number, voice_profile_id FROM people.pessoas ORDER BY name")
@@ -122,10 +122,15 @@ async def index(request: Request, user: dict = Depends(get_current_user)):
         if is_incomplete:
             return RedirectResponse(url="/wizard?mode=persona&target=self")
 
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request, "residents": residents, "system": await get_system_status(request), 
-        "vault": await get_vault_health(), "user": user
-    })
+    return templates.TemplateResponse(
+        request=request, name="dashboard.html", 
+        context={
+            "residents": residents, 
+            "system": await get_system_status(request), 
+            "vault": await get_vault_health(), 
+            "user": user
+        }
+    )
 
 @app.post("/login")
 async def login(request: Request, name: str = Form(...), password: str = Form(...)):
@@ -147,7 +152,7 @@ async def logout(request: Request):
 @app.get("/wizard", response_class=HTMLResponse)
 async def wizard_page(request: Request, mode: str = "persona", target: str = "self", user: dict = Depends(get_current_user)):
     if not user: return RedirectResponse(url="/")
-    return templates.TemplateResponse("wizard.html", {"request": request, "user": user, "mode": mode, "target": target})
+    return templates.TemplateResponse(request=request, name="wizard.html", context={"user": user, "mode": mode, "target": target})
 
 @app.post("/vault/save")
 async def save_vault_keys(request: Request, groq_key: str = Form(None), user: dict = Depends(get_current_user)):

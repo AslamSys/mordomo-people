@@ -24,7 +24,7 @@ async def startup_event():
 @app.get("/monitor", response_class=HTMLResponse)
 async def monitor_page(request: Request):
     # This serves the same debug_audio.html
-    return templates.TemplateResponse("debug_audio.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="debug_audio.html", context={})
 
 @app.websocket("/ws")
 async def monitor_ws(websocket: WebSocket):
