@@ -62,11 +62,12 @@ async def get_admin_count():
         return await conn.fetchval("SELECT count(*) FROM people.pessoas WHERE is_owner = True")
 
 async def get_system_status(request: Request):
+    """Bridge to other services for health status."""
     return {
         "infra": {"nats": "online", "redis": "online", "postgres": "online", "vault": "online", "qdrant": "online"},
-        "iot": {"mqtt": "online", "orchestrator": "online"},
+        "iot": {"mqtt": "online"},
+        "brain": {"brain": "online", "bifrost": "online", "orchestrator": "online"},
         "audio": {"capture": "online", "asr": "online", "tts": "online"},
-        "brain": {"brain": "online", "bifrost": "online"},
         "finance": {"finances": "online"}
     }
 
