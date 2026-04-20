@@ -270,6 +270,18 @@
             <div class="term-body" id="body-tts"></div>
         </div>
     </div>
+
+    <!-- GLOBAL SIGNAL BRIDGE -->
+    <div id="term-bridge" class="terminal-window" style="height: 320px; margin-top: 20px; border-color: rgba(0,255,65,0.3);">
+        <div class="term-header" style="background: #001a04; color: var(--neon-green);">
+            <div class="term-controls"><div class="dot green"></div><div class="dot green"></div><div class="dot green"></div></div>
+            <span>[ SYSTEM_WIDE_SIGNAL_BRIDGE ]</span>
+            <div style="font-size: 9px; opacity: 0.6;">MONITORING_SUBJECT: MORDOMO.></div>
+        </div>
+        <div class="term-body" id="body-bridge" style="font-size: 10px; color: #00cc33; font-family: monospace;">
+            <div class="term-line">_KERNEL_INIT: Signal interceptor attached to NATS bus.</div>
+        </div>
+    </div>
 </div>
 
 <div class="action-bar">
@@ -292,9 +304,21 @@
         processSignal(data.topic, data.payload);
     };
 
-    function addTermLine(id, msg) {
+    function addTermLine(id, msg, isBridge = false) {
         const body = document.getElementById('body-' + id);
         const term = document.getElementById('term-' + id);
+        
+        // Auto-log to Global Bridge
+        if (!isBridge) {
+            const bridgeBody = document.getElementById('body-bridge');
+            const bridgeLine = document.createElement('div');
+            bridgeLine.className = 'term-line';
+            bridgeLine.innerHTML = `<span style="color:#666">[${id.toUpperCase()}]</span> ${msg}`;
+            bridgeBody.appendChild(bridgeLine);
+            if (bridgeBody.childNodes.length > 100) bridgeBody.removeChild(bridgeBody.firstChild);
+            bridgeBody.scrollTop = bridgeBody.scrollHeight;
+        }
+
         if (!body) return;
 
         const line = document.createElement('div');
@@ -307,14 +331,16 @@
         body.scrollTop = body.scrollHeight;
 
         // Visual Flash
-        term.classList.remove('active-flash');
-        void term.offsetWidth; // Trigger reflow
-        term.classList.add('active-flash');
+        if (term) {
+            term.classList.remove('active-flash');
+            void term.offsetWidth; 
+            term.classList.add('active-flash');
+        }
     }
 
     function processSignal(topic, payload) {
-        // Broad logging for all mordomo topics to keep terminals alive
-        const logType = topic.includes('error') ? 'error' : (topic.includes('transcribed') ? 'success' : 'info');
+        // Log raw topic to Bridge for debugging
+        const rawMsg = typeof payload === 'object' ? JSON.stringify(payload) : payload;
         
         if (topic.includes('audio.stream')) {
             addTermLine('vad', `>> BYTES_RCV: [${payload.length || 'RAW'}]`);
@@ -325,8 +351,8 @@
         } else if (topic.includes('speech.transcribed')) {
             const mode = payload.is_final ? 'TRANSCRIBED' : 'STREAMING';
             addTermLine('asr', `>> ${mode}: "${payload.text}"`);
-        } else if (topic.includes('orchestrator.request')) {
-            addTermLine('orch', `>> INBOUND_REQ: text="${payload.text}"`);
+        } else if (topic.includes('orchestrator') || topic.includes('brain.generate')) {
+            addTermLine('orch', `>> BUS_MSG: ${topic} - ${rawMsg.substring(0, 50)}...`);
         } else if (topic.includes('llm.gateway')) {
             addTermLine('gateway', `>> CALL: ${payload.action || 'api'} (STATUS: ${payload.status})`);
         } else if (topic.includes('brain.thought')) {
@@ -335,11 +361,9 @@
             addTermLine('actions', `>> SYSCALL: ${payload.type} (TARGET=${payload.device_id || 'system'})`);
         } else if (topic.includes('brain.response')) {
             addTermLine('brain', `>> RESPONSE: "${payload.text}"`);
-        } else if (topic.includes('tts.status')) {
+        } else if (topic.includes('tts')) {
             const status = payload.status || payload.state || 'active';
-            addTermLine('tts', `>> STATE: ${status.toUpperCase()}`);
-        } else if (topic.includes('orchestrator')) {
-            addTermLine('orch', `>> SYSTEM: ${JSON.stringify(payload)}`);
+            addTermLine('tts', `>> TTS_EVENT: ${topic} [${status.toUpperCase()}]`);
         }
     }
 
