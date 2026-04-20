@@ -234,6 +234,15 @@
             <div class="term-body" id="body-orch"></div>
         </div>
 
+        <!-- Gateway / LLM Proxy -->
+        <div id="term-gateway" class="terminal-window">
+            <div class="term-header">
+                <div class="term-controls"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
+                <span>mordomo.llm.gateway</span><div>_ □ x</div>
+            </div>
+            <div class="term-body" id="body-gateway"></div>
+        </div>
+
         <!-- Brain / LLM -->
         <div id="term-brain" class="terminal-window">
             <div class="term-header">
@@ -315,10 +324,14 @@
             addTermLine('asr', `>> ${mode}: "${payload.text}"`);
         } else if (topic.includes('orchestrator.request')) {
             addTermLine('orch', `>> EVENT_ROUTED: type=speech_intent`);
+            addTermLine('gateway', `>> CALLING_GATEWAY: model=gemini-flash-2.0`);
+            addTermLine('brain', `>> THINKING: processing intent...`);
         } else if (topic.includes('brain.action')) {
             addTermLine('actions', `>> SYSCALL: ${payload.type} (TARGET=${payload.device_id || 'system'})`);
+            addTermLine('brain', `>> ACTION_DECIDED: ${payload.type}`);
         } else if (topic.includes('brain.response')) {
-            addTermLine('brain', `>> LLM_OUTPUT: "${payload.text}"`);
+            addTermLine('brain', `>> RESPONSE: "${payload.text}"`);
+            addTermLine('gateway', `>> GATEWAY_RETURN: 200 OK`);
         } else if (topic.includes('tts.status')) {
             addTermLine('tts', `>> STATE: ${payload.state.toUpperCase()}`);
         }
