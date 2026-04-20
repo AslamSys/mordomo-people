@@ -215,11 +215,28 @@
     let audioChunks = [];
 
     talkBtn.onclick = async () => {
+        if (!window.isSecureContext && window.location.hostname !== 'localhost') {
+            addLog('SYSTEM', 'ERRO: Microfone bloqueado em conexões HTTP. Use localhost ou configure HTTPS.', 'error');
+            alert("Acesso ao microfone negado: Navegadores bloqueiam áudio em IPs sem HTTPS (ex: http://192...).");
+            return;
+        }
+
         if (!isRecording) {
-            // START RECORDING
             try {
+                addLog('SYSTEM', 'Solicitando acesso ao microfone...', 'info');
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+                
+                // Try to find a supported mimeType
+                const types = ['audio/webm', 'audio/ogg', 'audio/mp4', ''];
+                let supportedType = '';
+                for (const t of types) {
+                    if (MediaRecorder.isTypeSupported(t)) {
+                        supportedType = t;
+                        break;
+                    }
+                }
+                
+                mediaRecorder = new MediaRecorder(stream, supportedType ? { mimeType: supportedType } : {});
                 audioChunks = [];
                 
                 mediaRecorder.ondataavailable = (e) => {
@@ -227,11 +244,12 @@
                 };
 
                 mediaRecorder.onstop = async () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                    micStatus.innerText = 'Uploading...';
+                    const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+                    micStatus.innerText = 'UPLOADING...';
+                    addLog('SYSTEM', `Gravado: ${Math.round(audioBlob.size / 1024)}KB. Enviando...`, 'info');
                     
                     const formData = new FormData();
-                    formData.append('file', audioBlob, 'command.webm');
+                    formData.append('file', audioBlob, 'command.audio');
                     
                     try {
                         const resp = await fetch('/debug-neural/upload-audio', {
@@ -239,30 +257,36 @@
                             body: formData
                         });
                         const res = await resp.json();
-                        addLog('SYSTEM', `Audio Uploaded: ${res.bytes} bytes`, res.status === 'ok' ? 'info' : 'error');
+                        if (res.status === 'ok') {
+                            addLog('SYSTEM', `Sucesso: ${res.bytes} bytes injetados na pipeline`, 'info');
+                        } else {
+                            addLog('SYSTEM', `Erro no servidor: ${res.message}`, 'error');
+                        }
                         micStatus.innerText = 'Ready';
                     } catch (err) {
-                        addLog('SYSTEM', 'Upload Error: ' + err, 'error');
+                        addLog('SYSTEM', 'Erro de conexão no upload: ' + err, 'error');
+                        micStatus.innerText = 'Ready';
                     }
                 };
 
                 mediaRecorder.start();
                 isRecording = true;
                 micIcon.className = 'fas fa-stop';
-                micIcon.style.color = 'var(--accent-primary)';
-                micStatus.innerText = 'Recording...';
-                talkBtn.classList.add('pulse');
+                micIcon.style.color = '#ef4444'; // Red for stop
+                micStatus.innerText = 'RECORDING...';
+                talkBtn.style.background = 'rgba(239, 68, 68, 0.1)';
+                addLog('SYSTEM', 'Gravando áudio... fale agora!', 'info');
             } catch (err) {
-                addLog('SYSTEM', 'Mic Error: ' + err, 'error');
+                addLog('SYSTEM', 'Falha no microfone: ' + err, 'error');
+                console.error(err);
             }
         } else {
-            // STOP RECORDING
             mediaRecorder.stop();
             mediaRecorder.stream.getTracks().forEach(t => t.stop());
             isRecording = false;
             micIcon.className = 'fas fa-microphone';
             micIcon.style.color = 'var(--text-dim)';
-            talkBtn.classList.remove('pulse');
+            talkBtn.style.background = 'rgba(255,255,255,0.05)';
         }
     };
 </script>
