@@ -160,39 +160,48 @@
 
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        addLog(data.topic, JSON.stringify(data.payload));
         processNeuralMessage(data.topic, data.payload);
     };
 
-    function addLog(topic, msg) {
+    function addLog(topic, msg, type = 'info') {
         const entry = document.createElement('div');
-        entry.className = 'log-entry';
-        entry.innerHTML = `<span class="log-topic">${topic}</span> ${msg}`;
+        entry.className = `log-entry log-${type}`;
+        
+        let displayMsg = (typeof msg === 'object') ? JSON.stringify(msg) : msg;
+        
+        // Clean up common topic prefixes for logs
+        const shortTopic = topic.replace('mordomo.', '').toUpperCase();
+        
+        entry.innerHTML = `<span class="log-topic">${shortTopic}</span> ${displayMsg}`;
         logStream.prepend(entry);
         if (logStream.childNodes.length > 50) logStream.removeChild(logStream.lastChild);
     }
 
     function processNeuralMessage(topic, payload) {
+        // High-level log first
+        const logType = topic.includes('error') ? 'error' : (topic.includes('transcribed') ? 'success' : 'info');
+        addLog(topic, payload, logType);
+
         if (topic.includes('verified') || (topic.includes('speech') && !topic.includes('tts'))) {
-            document.querySelectorAll('.pipeline-card').forEach(c => {
-                c.classList.remove('active');
-                if (c.id === 'card-vad') c.querySelector('div:not(.status-light)').innerText = '🔇 Silêncio';
-                if (c.id === 'card-asr') c.querySelector('div:not(.status-light)').innerText = '...';
-                if (c.id === 'card-brain') c.querySelector('div:not(.status-light)').innerText = 'Pensando...';
-                if (c.id === 'card-tts') c.querySelector('div:not(.status-light)').innerText = 'Sintetizando...';
-            });
+            document.querySelectorAll('.pipeline-card').forEach(c => c.classList.remove('active'));
         }
 
         if (topic.includes('verified')) {
-            activateCard('vad', '👤 Usuário Identificado!');
+            activateCard('vad', `👤 ${payload.speaker_id || 'User'} Identificado!`);
         } else if (topic.includes('speech.transcribed')) {
-            activateCard('asr', payload.text || 'Transcrição capturada');
+            activateCard('asr', payload.text || 'Ouvindo...');
             activateCard('vad', '🗣️ Fala Detectada');
         } else if (topic.includes('brain.action')) {
-            activateCard('brain', payload.action || payload.text || 'Executando comando...');
+            let actionText = 'Executando comando...';
+            if (payload.type === 'iot_control') {
+                actionText = `💡 IoT: ${payload.command} (${payload.device_id})`;
+            }
+            activateCard('brain', actionText);
+        } else if (topic.includes('brain.response')) {
+            activateCard('brain', payload.text || 'Resposta gerada');
         } else if (topic.includes('tts.status')) {
-            const isSpeaking = payload.state === 'started' || !!payload.text;
-            activateCard('tts', isSpeaking ? '📢 Falando: ' + (payload.text || '...') : '✅ Resposta concluída');
+            const isSpeaking = payload.state === 'started';
+            activateCard('tts', isSpeaking ? '📢 ' + (payload.text || 'Falando...') : '✅ Concluído');
         }
     }
 
