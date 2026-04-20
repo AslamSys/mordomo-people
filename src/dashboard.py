@@ -66,6 +66,7 @@ async def get_system_status(request: Request):
         "infra": {"nats": "online", "redis": "online", "postgres": "online", "vault": "online", "qdrant": "online"},
         "iot": {"mqtt": "online", "orchestrator": "online"},
         "audio": {"capture": "online", "asr": "online", "tts": "online"},
+        "brain": {"brain": "online", "bifrost": "online"},
         "finance": {"finances": "online"}
     }
 
