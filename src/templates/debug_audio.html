@@ -316,13 +316,15 @@
 </div>
 
 <script>
+    console.log("MORDOMO_DEBUG_MONITOR_V2.1_STABLE_LOADED");
+    
     // System Clock
     setInterval(() => {
         document.getElementById('clock').innerText = new Date().toLocaleTimeString('pt-BR', { hour12: false });
     }, 1000);
 
     const ws = new WebSocket(`ws://${window.location.host}/debug-neural/ws`);
-    let isMicOpen = false;
+    let systemMicActive = false;
 
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
@@ -341,7 +343,6 @@
             bridgeBody.appendChild(bridgeLine);
             if (bridgeBody.childNodes.length > 200) bridgeBody.removeChild(bridgeBody.firstChild);
             
-            // Smoother auto-scroll
             requestAnimationFrame(() => {
                 bridgeBody.scrollTop = bridgeBody.scrollHeight;
             });
@@ -366,32 +367,27 @@
     function processSignal(topic, payload) {
         const rawMsg = typeof payload === 'object' ? JSON.stringify(payload) : payload;
         
-        // Handle Hardware VAD Energy
         if (topic.includes('audio.vad.energy')) {
             const fill = document.getElementById('vad-fill');
             const meter = document.getElementById('vad-meter');
-            const status = document.getElementById('mic-status');
-            
             if (meter) meter.style.display = 'block';
             if (fill) {
-                const percent = Math.min((payload.energy / 5000) * 100, 100);
+                const percent = Math.min((payload.rms * 1000) * 100, 100);
                 fill.style.width = percent + '%';
-                fill.style.background = payload.is_speech ? '#ff5f56' : '#00ff41';
+                fill.style.background = payload.rms > 0.05 ? '#ff5f56' : '#00ff41';
             }
-            
-            if (payload.is_speech) {
-                addTermLine('vad', `>> SIGNAL: ENERGY_PEAK[${payload.energy}]`);
+            if (payload.rms > 0.05) {
+                addTermLine('vad', `>> SIGNAL: ENERGY_LEVEL[${payload.rms.toFixed(4)}]`);
             }
             return;
         }
 
-        // Handle Mic State Feedback
         if (topic.includes('audio.capture.state')) {
-            isMicOpen = payload.enabled;
+            systemMicActive = payload.enabled;
             const btn = document.getElementById('power-btn');
             const status = document.getElementById('mic-status');
             
-            if (isMicOpen) {
+            if (systemMicActive) {
                 btn.style.color = 'var(--neon-green)';
                 btn.style.borderColor = 'var(--neon-green)';
                 btn.style.boxShadow = '0 0 15px var(--neon-green)';
@@ -406,60 +402,30 @@
                 document.getElementById('vad-fill').style.width = '0%';
             }
         }
-
-        if (topic.includes('wake_word.detected')) {
-            addTermLine('wake', `★★ DETECTED: [${payload.keyword}] CONF=${payload.confidence}`);
-        } else if (topic.includes('speaker.verified')) {
-            addTermLine('bio', `>> VERIFIED_USER: [${payload.speaker_id}]`);
-        } else if (topic.includes('speech.transcribed')) {
-            const mode = payload.is_final ? 'TRANSCRIBED' : 'STREAMING';
-            addTermLine('asr', `>> ${mode}: "${payload.text}"`);
-        } else if (topic.includes('orchestrator') || topic.includes('brain.generate')) {
-            addTermLine('orch', `>> BUS_MSG: ${topic} - ${rawMsg.substring(0, 50)}...`);
-        } else if (topic.includes('llm.gateway')) {
-            addTermLine('gateway', `>> CALL: ${payload.action || 'api'} (STATUS: ${payload.status})`);
-        } else if (topic.includes('brain.thought')) {
-            addTermLine('brain', `>> THINKING: tier=${payload.tier} intents=${JSON.stringify(payload.intents)}`);
-        } else if (topic.includes('brain.action')) {
-            addTermLine('actions', `>> SYSCALL: ${payload.type} (TARGET=${payload.device_id || 'system'})`);
-        } else if (topic.includes('brain.response')) {
-            addTermLine('brain', `>> RESPONSE: "${payload.text}"`);
-        } else if (topic.includes('tts')) {
-            const status = payload.status || payload.state || 'active';
-            addTermLine('tts', `>> TTS_EVENT: ${topic} [${status.toUpperCase()}]`);
-        }
     }
 
-    let audioContext;
-    let processor;
-    let stream;
+    let audioCtx;
+    let audioProcessor;
+    let micStream;
 
-    function updateStatus(text, logMsg) {
-        const s = document.getElementById('mic-status');
-        s.innerText = `[${text}]`;
-        addTermLine('bridge', `>> SYSTEM: ${logMsg}`);
-    }
-
-    async function toggleMic() {
+    async function handlePowerClick() {
         const btn = document.getElementById('power-btn');
-        if (!isMicOpen) {
+        const status = document.getElementById('mic-status');
+
+        if (!systemMicActive) {
             try {
                 addTermLine('bridge', `>> COMMAND: [MIC_OPEN_REQUEST]`);
-                // 1. Request Browser Mic
-                stream = await navigator.mediaDevices.getUserMedia({ audio: { 
+                micStream = await navigator.mediaDevices.getUserMedia({ audio: { 
                     channelCount: 1, 
-                    sampleRate: 16000,
-                    echoCancellation: true,
-                    noiseSuppression: true
+                    sampleRate: 16000
                 }});
                 
-                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-                const source = audioContext.createMediaStreamSource(stream);
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                const source = audioCtx.createMediaStreamSource(micStream);
+                audioProcessor = audioCtx.createScriptProcessor(4096, 1, 1);
                 
-                // Use ScriptProcessor for max compatibility
-                processor = audioContext.createScriptProcessor(4096, 1, 1);
-                processor.onaudioprocess = (e) => {
-                    if (!isMicOpen) return;
+                audioProcessor.onaudioprocess = (e) => {
+                    if (!systemMicActive) return;
                     const inputData = e.inputBuffer.getChannelData(0);
                     const pcmData = new Int16Array(inputData.length);
                     for (let i = 0; i < inputData.length; i++) {
@@ -470,32 +436,33 @@
                     }
                 };
 
-                source.connect(processor);
-                processor.connect(audioContext.destination);
+                source.connect(audioProcessor);
+                audioProcessor.connect(audioCtx.destination);
 
-                isMicOpen = true;
-                updateStatus("HARDWARE_MIC_ACTIVE", "PC MICROPHONE LIVE");
+                systemMicActive = true;
+                status.innerText = "[PC_MIC_ACTIVE]";
+                status.style.color = "var(--neon-green)";
                 btn.style.color = 'var(--neon-green)';
                 btn.style.borderColor = 'var(--neon-green)';
                 btn.style.boxShadow = '0 0 15px var(--neon-green)';
                 
                 ws.send(JSON.stringify({
                     topic: "mordomo.audio.capture.open",
-                    payload: { source: "browser-pc", sample_rate: 16000 }
+                    payload: { source: "browser-pc" }
                 }));
 
             } catch (err) {
-                console.error("Mic error:", err);
-                addTermLine('bridge', `ERR: MIC_ACCESS_DENIED: ${err.message}`);
-                updateStatus("OFFLINE", "CHECK MIC PERMISSIONS");
+                addTermLine('bridge', `ERR: MIC_ERROR: ${err.message}`);
+                status.innerText = "[ACCESS_DENIED]";
             }
         } else {
             addTermLine('bridge', `>> COMMAND: [MIC_CLOSE_REQUEST]`);
-            if (stream) stream.getTracks().forEach(t => t.stop());
-            if (audioContext) audioContext.close();
+            if (micStream) micStream.getTracks().forEach(t => t.stop());
+            if (audioCtx) audioCtx.close();
             
-            isMicOpen = false;
-            updateStatus("HARDWARE_MIC_STANDBY", "PC MIC DISCONNECTED");
+            systemMicActive = false;
+            status.innerText = "[SYSTEM_STANDBY]";
+            status.style.color = "";
             btn.style.color = '';
             btn.style.borderColor = '';
             btn.style.boxShadow = '';
@@ -507,7 +474,7 @@
         }
     }
 
-    document.getElementById('power-btn').addEventListener('click', toggleMic);
+    document.getElementById('power-btn').addEventListener('click', handlePowerClick);
 
     async function simulate() {
         const text = document.getElementById('sim-text').value;
