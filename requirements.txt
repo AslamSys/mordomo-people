@@ -12,3 +12,4 @@ itsdangerous
 python-multipart
 requests
 redis
+pyzmq
