@@ -1,13 +1,27 @@
 import json
 import logging
 import asyncio
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+import os
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from nats.aio.client import Client as NATS
 
 logger = logging.getLogger("mordomo-debug")
 app = FastAPI(title="Neural Pipeline Debugger")
 templates = Jinja2Templates(directory="src/templates")
+
+# Shared NATS client
+_nc = NATS()
+
+async def get_nc():
+    if not _nc.is_connected:
+        try:
+            await _nc.connect("nats://nats:4222", pending_size=1024*1024*10)
+            logger.info("DEBUG: NATS connected for pipeline monitor")
+        except Exception as e:
+            logger.error(f"DEBUG: NATS connection failed: {e}")
+    return _nc
 
 @app.get("/monitor", response_class=HTMLResponse)
 async def monitor_page(request: Request):
@@ -16,67 +30,68 @@ async def monitor_page(request: Request):
 @app.websocket("/ws")
 async def monitor_ws(websocket: WebSocket):
     await websocket.accept()
-    logger.info("DEBUG_WS: Connection accepted (Production Mode)")
+    logger.info("DEBUG_WS: Connection accepted (Full Pipeline Mode)")
     
+    client = await get_nc()
     sub = None
+
+    async def msg_handler(msg):
+        try:
+            subject = msg.subject
+            data = msg.data
+            
+            # Identify content type
+            content = None
+            if subject.endswith(".energy"):
+                content = json.loads(data.decode())
+            elif subject.endswith(".speech") or subject.endswith(".stream"):
+                # Audio blobs (limit volume to avoid WS flood if needed)
+                content = {"type": "audio_event", "len": len(data)}
+            else:
+                try:
+                    content = json.loads(data.decode())
+                except:
+                    content = data.decode()
+            
+            await websocket.send_json({"topic": subject, "payload": content})
+        except Exception as e:
+            pass
+
     if client.is_connected:
         try:
+            # Subscribe to all telemetry
             sub = await client.subscribe("mordomo.>", cb=msg_handler)
-            logger.info("DEBUG_WS: Subscribed back to NATS (Full Monitor)")
+            logger.info("DEBUG_WS: Subscribed to NATS telemetry portal")
         except Exception as e:
-            logger.error(f"DEBUG_WS: NATS Sub error: {e}")
-    
+            logger.error(f"DEBUG_WS: Subscription failed: {e}")
+
     try:
         while True:
             data = await websocket.receive()
-            if "text" in data:
-                text = data["text"]
-                logger.info(f"DEBUG_WS: Received text: {text[:100]}")
-                
-                # Check if it is JSON (New standard)
-                try:
-                    msg = json.loads(text)
-                    topic = msg.get("topic")
-                    if topic and client.is_connected:
-                        payload = msg.get("payload", {})
-                        
-                        # If simulating from input, map to orchestrator
-                        if topic == "mordomo.debug.simulate":
-                            target_topic = "mordomo.orchestrator.request"
-                            out_msg = json.dumps({
-                                "text": payload.get("text", ""),
-                                "user_id": "debug",
-                                "source": "monitor"
-                            })
-                        else:
-                            target_topic = topic
-                            out_msg = json.dumps(payload)
-                        
-                        logger.info(f"DEBUG_WS: Publishing to {target_topic} -> {out_msg[:50]}")
-                        await client.publish(target_topic, out_msg.encode())
-                        await client.flush()
-                        logger.info(f"DEBUG_WS: Publish SUCCESS")
-                    else:
-                        logger.warning(f"DEBUG_WS: Missing topic or NATS disconnected (topic={topic}, connected={client.is_connected})")
-                    continue
-                except Exception as e:
-                    logger.debug(f"DEBUG_WS: Not a standard JSON msg, checking fallback strings... ({e})")
-
-                # Legacy String Parser (Fallback)
-                if text.startswith("simulate:"):
-                    cmd = text.replace("simulate:", "")
-                    if client.is_connected:
-                        logger.info(f"DEBUG_WS: Scaling legacy simulate: {cmd}")
-                        await client.publish("mordomo.orchestrator.request", json.dumps({"text": cmd, "user_id": "debug"}).encode())
-                    else:
-                        logger.error("DEBUG_WS: NATS disconnected for legacy simulate")
             
+            if "text" in data:
+                try:
+                    msg = json.loads(data["text"])
+                    topic = msg.get("topic")
+                    payload = msg.get("payload", {})
+                    
+                    if topic and client.is_connected:
+                        await client.publish(topic, json.dumps(payload).encode())
+                        await client.flush()
+                except:
+                    # Legacy or raw text
+                    text = data["text"]
+                    if text.startswith("simulate:"):
+                        cmd = text.replace("simulate:", "")
+                        await client.publish("mordomo.orchestrator.request", json.dumps({"text": cmd, "user_id": "debug"}).encode())
+
             elif "bytes" in data and client.is_connected:
-                logger.info(f"DEBUG_WS: Received {len(data['bytes'])} audio bytes. Publishing to stream.")
+                # PUBLISH PC MIC TO VAD INPUT
                 await client.publish("mordomo.audio.stream", data["bytes"])
+                
     except WebSocketDisconnect:
-        logger.warning("DEBUG_WS: WebSocket DISCONNECTED")
+        logger.warning("DEBUG_WS: Disconnected")
         if sub: await sub.unsubscribe()
     except Exception as e:
-        logger.error(f"DEBUG_WS: UNEXPECTED ERROR: {e}")
+        logger.error(f"DEBUG_WS: Error: {e}")
         if sub: await sub.unsubscribe()
