@@ -109,6 +109,11 @@ async def seed_vault():
             async with httpx.AsyncClient() as client:
                 await client.post(f"{VAULT_URL}/set", json=s)
 
+@app.on_event("startup")
+async def startup_event():
+    import asyncio
+    asyncio.create_task(seed_vault())
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, user: dict = Depends(get_current_user)):
     admin_count = await get_admin_count()
