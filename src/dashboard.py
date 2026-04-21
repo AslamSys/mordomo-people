@@ -250,11 +250,15 @@ def _write_openclaw_config(provider: str, api_key: str, model: str):
         agents_path = os.path.join(data_dir, "agents")
         if os.path.exists(agents_path):
             import shutil
+            logger.info(f"Wiping OpenClaw agents directory: {agents_path}")
             shutil.rmtree(agents_path)
-
+        else:
+            logger.info(f"No agents directory to wipe at {agents_path}")
+            
         # Clear workspace triggers and modular identity files (2026 pattern)
         workspace_path = os.path.join(data_dir, "workspace")
         if os.path.exists(workspace_path):
+            logger.info(f"Cleaning modular files in workspace: {workspace_path}")
             # List of all files that OpenClaw 2026 generates and uses for identity
             for f in ["BOOTSTRAP.md", "HEARTBEAT.md", "PLAN.md", "TODO.md", 
                       "SOUL.md", "IDENTITY.md", "AGENTS.md", "TOOLS.md", "USER.md"]:
@@ -279,16 +283,18 @@ Você é o **OpenClaw**, a interface neural humano-máquina do ecossistema **Asl
 ---
 *Configurado via Mordomo People Hub.*
 """
+        logger.info(f"Injecting identity into {soul_path}")
         with open(soul_path, "w", encoding="utf-8") as f:
             f.write(soul_text)
 
         # 2. BOOTSTRAP.md - Marks as completed
         bootstrap_path = os.path.join(workspace_path, "BOOTSTRAP.md")
         bootstrap_text = "Bootstrap concluído com sucesso via Zero-Touch Deployment. Siga as instruções em SOUL.md."
+        logger.info(f"Marking bootstrap as completed in {bootstrap_path}")
         with open(bootstrap_path, "w", encoding="utf-8") as f:
             f.write(bootstrap_text)
                     
-        print(f"OpenClaw state wiped and 2026 Identity injected at {data_dir}")
+        logger.info(f"OpenClaw Zero-Touch configuration complete for {data_dir}")
     except Exception as e:
         logger.error(f"Failed to wipe agents directory: {e}")
 
