@@ -314,7 +314,8 @@ async def openclaw_status(request: Request, user: dict = Depends(get_current_use
     if not user:
         return JSONResponse({"error": "unauthorized"}, status_code=403)
     container_status = await _get_openclaw_container_status()
-    return JSONResponse({"status": container_status})
+    # Return the dictionary directly so keys like .status and .running work in JS
+    return JSONResponse(container_status)
 
 @app.post("/vault/save")
 async def save_vault_keys(
