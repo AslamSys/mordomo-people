@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MORDOR_NEURAL_OS // PIPELINE MONITOR</title>
+    <title>MORDOMO_NEURAL_OS // PIPELINE MONITOR</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
@@ -26,10 +26,9 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-            overflow-y: auto; /* ALLOW SCROLL */
+            overflow-y: auto;
         }
 
-        /* Custom Neon Scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: var(--bg-color); }
         ::-webkit-scrollbar-thumb { background: var(--term-border); border-radius: 3px; }
@@ -40,7 +39,7 @@
             flex-direction: column;
             padding: 20px;
             box-sizing: border-box;
-            padding-bottom: 200px; /* Large space for the action bar */
+            padding-bottom: 120px;
         }
 
         .terminal-grid {
@@ -112,42 +111,13 @@
             bottom: 0; left: 0; right: 0;
             background: #080a10;
             border-top: 1px solid var(--term-border);
-            padding: 24px 40px;
+            padding: 18px 40px;
             display: flex;
             align-items: center;
             gap: 30px;
             z-index: 9999;
             box-shadow: 0 -10px 40px rgba(0,0,0,0.9);
             backdrop-filter: blur(10px);
-        }
-
-        .mic-trigger {
-            width: 58px; height: 58px;
-            border-radius: 50%;
-            border: 2px solid var(--term-border);
-            background: rgba(255,255,255,0.01);
-            color: var(--text-dim);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .mic-trigger:hover { border-color: var(--text-main); transform: scale(1.05); }
-
-        .mic-trigger.recording { 
-            color: var(--neon-green); 
-            border-color: var(--neon-green); 
-            box-shadow: 0 0 20px var(--neon-green);
-            animation: pulse-mic 1.2s infinite;
-        }
-
-        @keyframes pulse-mic {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.05); opacity: 0.7; }
-            100% { transform: scale(1); opacity: 1; }
         }
 
         .sim-input {
@@ -178,7 +148,6 @@
         }
         .btn-send:hover { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 4px 15px rgba(0,255,65,0.3); }
 
-        /* Energy Meter */
         .energy-meter {
             height: 4px;
             background: #111;
@@ -193,7 +162,6 @@
             width: 0%;
             transition: width 0.1s;
         }
-
     </style>
 </head>
 <body>
@@ -205,12 +173,12 @@
             <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; font-weight: bold;">System Time: <span id="clock">00:00:00</span> // Latency: <span id="latency">--ms</span></div>
         </div>
         <div style="display: flex; gap: 15px; align-items: center;">
-            <div id="conn-status" style="font-size: 0.75rem; color: var(--neon-green); background: rgba(0,255,65,0.05); padding: 4px 10px; border-radius: 4px; border: 1px solid rgba(0,255,65,0.2);">SOCKET: ESTABLISHED</div>
+            <div id="conn-status" style="font-size: 0.75rem; color: var(--text-dim); background: rgba(0,255,65,0.05); padding: 4px 10px; border-radius: 4px; border: 1px solid rgba(0,255,65,0.2);">SOCKET: CONNECTING...</div>
         </div>
     </div>
 
     <div class="terminal-grid">
-        <!-- Capture -->
+        <!-- Capture / VAD -->
         <div id="term-vad" class="terminal-window">
             <div class="term-header">
                 <div class="term-controls"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
@@ -307,8 +275,7 @@
 </div>
 
 <div class="action-bar">
-    <button class="mic-trigger" id="power-btn" title="Toggle Hardware Microphone"><i class="fas fa-power-off"></i></button>
-    <div id="mic-status" style="font-size: 0.75rem; color: var(--text-dim); width: 220px; font-weight: bold;">[SYSTEM_STANDBY]</div>
+    <div id="mic-status" style="font-size: 0.75rem; color: var(--text-dim); font-weight: bold; width: 220px;">[CONNECTING...]</div>
     <div class="sim-input-container" style="flex: 1; display: flex; gap: 10px;">
         <input type="text" id="sim-text" class="sim-input" placeholder="root@mordomo:~# inject signal --payload 'text here'">
         <button onclick="simulate()" class="btn-send">SEND_SIGNAL</button>
@@ -316,15 +283,20 @@
 </div>
 
 <script>
-    console.log("MORDOMO_DEBUG_MONITOR_V2.1_STABLE_LOADED");
-    
+    console.log("MORDOMO_DEBUG_MONITOR_V3_AUTO_MIC");
+
     // System Clock
     setInterval(() => {
         document.getElementById('clock').innerText = new Date().toLocaleTimeString('pt-BR', { hour12: false });
     }, 1000);
 
     const ws = new WebSocket(`ws://${window.location.host}/debug-neural/ws`);
-    let systemMicActive = false;
+
+    ws.onclose = () => {
+        document.getElementById('mic-status').innerText = '[DISCONNECTED]';
+        document.getElementById('conn-status').innerText = 'SOCKET: CLOSED';
+        document.getElementById('conn-status').style.color = '#ff5f56';
+    };
 
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
@@ -334,7 +306,7 @@
     function addTermLine(id, msg, isBridge = false) {
         const body = document.getElementById('body-' + id);
         const term = document.getElementById('term-' + id);
-        
+
         if (!isBridge) {
             const bridgeBody = document.getElementById('body-bridge');
             const bridgeLine = document.createElement('div');
@@ -342,10 +314,7 @@
             bridgeLine.innerHTML = `<span style="color:#666">[${id.toUpperCase()}]</span> ${msg}`;
             bridgeBody.appendChild(bridgeLine);
             if (bridgeBody.childNodes.length > 200) bridgeBody.removeChild(bridgeBody.firstChild);
-            
-            requestAnimationFrame(() => {
-                bridgeBody.scrollTop = bridgeBody.scrollHeight;
-            });
+            requestAnimationFrame(() => { bridgeBody.scrollTop = bridgeBody.scrollHeight; });
         }
 
         if (!body) return;
@@ -359,7 +328,7 @@
 
         if (term) {
             term.classList.remove('active-flash');
-            void term.offsetWidth; 
+            void term.offsetWidth;
             term.classList.add('active-flash');
         }
     }
@@ -367,191 +336,145 @@
     function processSignal(topic, payload) {
         const rawMsg = typeof payload === 'object' ? JSON.stringify(payload) : String(payload);
 
-        // ── VAD energy — suporta ambas as chaves "energy" e "rms" ─────────
+        // ── VAD energy ────────────────────────────────────────────────────
         if (topic.includes('audio.vad.energy')) {
             const fill  = document.getElementById('vad-fill');
             const meter = document.getElementById('vad-meter');
+            // energy is int16 RMS (0..32767)
             const level = payload.energy ?? payload.rms ?? 0;
+            const norm  = Math.min(level / 32767, 1);
             if (meter) meter.style.display = 'block';
             if (fill) {
-                const percent = Math.min(level * 4000, 100);
-                fill.style.width = percent + '%';
+                fill.style.width = (norm * 100) + '%';
                 fill.style.background = payload.is_speech ? '#ff5f56' : '#00ff41';
             }
-            if (payload.is_speech || level > 0.01) {
+            if (payload.is_speech || norm > 0.003) {
                 const src = payload.source ? `[${payload.source.toUpperCase()}]` : '';
-                addTermLine('vad', `>> FRAME${src} energy=${level.toFixed(4)} speech=${payload.is_speech}`);
+                addTermLine('vad', `>> FRAME${src} rms=${Math.round(level)} speech=${payload.is_speech}`);
             }
             return;
         }
 
         // ── Mic state ─────────────────────────────────────────────────────
         if (topic.includes('audio.capture.state')) {
-            const btn    = document.getElementById('power-btn');
-            const status = document.getElementById('mic-status');
-            const active = payload.enabled;
-            if (active) {
-                btn.style.color = btn.style.borderColor = 'var(--neon-green)';
-                btn.style.boxShadow = '0 0 15px var(--neon-green)';
-                status.innerText = '[MIC_ACTIVE]';
-                status.style.color = 'var(--neon-green)';
-            } else {
-                btn.style.color = btn.style.borderColor = btn.style.boxShadow = '';
-                status.innerText = '[SYSTEM_STANDBY]';
-                status.style.color = '';
-                const fill = document.getElementById('vad-fill');
-                if (fill) fill.style.width = '0%';
-            }
-            addTermLine('vad', `>> MIC_STATE: ${active ? 'OPEN' : 'CLOSED'} src=${payload.source||'?'}`);
+            addTermLine('vad', `>> MIC_STATE: ${payload.enabled ? 'OPEN' : 'CLOSED'} src=${payload.source || '?'}`);
             return;
         }
 
         // ── Wake Word ─────────────────────────────────────────────────────
         if (topic.includes('wake_word.detected')) {
             const conf = payload.confidence ? payload.confidence.toFixed(3) : '?';
-            addTermLine('wake', `★★ DETECTED keyword=${payload.keyword} conf=${conf} session=${(payload.session_id||'?').slice(0,8)}`);
+            addTermLine('wake', `★★ DETECTED keyword=${payload.keyword} conf=${conf} session=${(payload.session_id || '?').slice(0, 8)}`);
             addTermLine('bridge', `WAKE_WORD >> ${payload.keyword} (${conf})`, true);
             return;
         }
 
         // ── Speaker Verification / Bio ────────────────────────────────────
         if (topic.includes('speaker.verified')) {
-            addTermLine('bio', `✓ SPEAKER VERIFIED: ${payload.speaker_id||'?'} (score=${payload.score||'?'})`);
+            addTermLine('bio', `✓ VERIFIED: ${payload.speaker_id || '?'} score=${payload.score || '?'}`);
             return;
         }
         if (topic.includes('speaker.rejected')) {
-            addTermLine('bio', `✗ SPEAKER REJECTED: unknown voice`);
+            addTermLine('bio', `✗ REJECTED: unknown voice`);
             return;
         }
         if (topic.includes('audio.snippet')) {
-            addTermLine('bio', `>> SNIPPET recv len=${payload.len||rawMsg.length}`);
+            addTermLine('bio', `>> SNIPPET len=${payload.len || rawMsg.length}`);
             return;
         }
 
         // ── ASR / Whisper ─────────────────────────────────────────────────
-        if (topic.includes('speech.transcribed') || topic.includes('whisper')) {
-            const text = payload.text || rawMsg;
-            addTermLine('asr', `>> TRANSCRIPT [${payload.is_final ? 'FINAL' : 'partial'}]: "${text}"`);
-            return;
-        }
-        if (topic.includes('whisper.asr.status')) {
-            addTermLine('asr', `>> STATE: ${payload.state}`);
+        if (topic.includes('speech.transcribed') || topic.includes('asr.status')) {
+            if (payload.text) {
+                addTermLine('asr', `>> TRANSCRIPT [${payload.is_final ? 'FINAL' : 'partial'}]: "${payload.text}"`);
+            } else {
+                addTermLine('asr', `>> STATE: ${payload.state || rawMsg}`);
+            }
             return;
         }
 
         // ── Orchestrator ──────────────────────────────────────────────────
         if (topic.includes('orchestrator') || topic.includes('conversation')) {
-            addTermLine('orch', `>> ${topic.split('.').pop().toUpperCase()}: ${rawMsg.slice(0,120)}`);
+            addTermLine('orch', `>> ${topic.split('.').pop().toUpperCase()}: ${rawMsg.slice(0, 120)}`);
             return;
         }
 
         // ── Brain / LLM ───────────────────────────────────────────────────
         if (topic.includes('brain') || topic.includes('llm') || topic.includes('response')) {
-            addTermLine('brain', `>> ${rawMsg.slice(0,120)}`);
+            addTermLine('brain', `>> ${rawMsg.slice(0, 120)}`);
             return;
         }
 
         // ── TTS ───────────────────────────────────────────────────────────
         if (topic.includes('tts') || topic.includes('audio.play')) {
-            addTermLine('tts', `>> ${topic}: ${rawMsg.slice(0,80)}`);
+            addTermLine('tts', `>> ${topic}: ${rawMsg.slice(0, 80)}`);
             return;
         }
 
         // ── IoT / Actions ─────────────────────────────────────────────────
         if (topic.includes('iot') || topic.includes('action') || topic.includes('command')) {
-            addTermLine('actions', `>> ${topic}: ${rawMsg.slice(0,80)}`);
+            addTermLine('actions', `>> ${topic}: ${rawMsg.slice(0, 80)}`);
             return;
         }
 
         // ── Gateway ───────────────────────────────────────────────────────
         if (topic.includes('gateway') || topic.includes('litellm') || topic.includes('bifrost')) {
-            addTermLine('gateway', `>> ${topic}: ${rawMsg.slice(0,80)}`);
+            addTermLine('gateway', `>> ${topic}: ${rawMsg.slice(0, 80)}`);
             return;
         }
 
-        // ── Fallback: tudo vai pro bridge ─────────────────────────────────
-        addTermLine('bridge', `[${topic}] ${rawMsg.slice(0,100)}`, true);
+        // ── Fallback → bridge ─────────────────────────────────────────────
+        addTermLine('bridge', `[${topic}] ${rawMsg.slice(0, 100)}`, true);
     }
 
-    let audioCtx;
-    let audioProcessor;
-    let micStream;
+    // ── Auto-start mic when WebSocket connects ─────────────────────────────
+    let audioCtx, audioProcessor, micStream;
 
-    async function handlePowerClick() {
-        const btn = document.getElementById('power-btn');
+    async function startMic() {
         const status = document.getElementById('mic-status');
+        try {
+            micStream = await navigator.mediaDevices.getUserMedia({
+                audio: { channelCount: 1, sampleRate: 16000, echoCancellation: true, noiseSuppression: false }
+            });
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+            const source = audioCtx.createMediaStreamSource(micStream);
+            // 4096 samples @ 16kHz = 256ms per chunk — chunker handles 30ms slicing
+            audioProcessor = audioCtx.createScriptProcessor(4096, 1, 1);
 
-        if (!systemMicActive) {
-            try {
-                addTermLine('bridge', `>> COMMAND: [MIC_OPEN_REQUEST]`);
-                micStream = await navigator.mediaDevices.getUserMedia({ audio: { 
-                    channelCount: 1, 
-                    sampleRate: 16000
-                }});
-                
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-                const source = audioCtx.createMediaStreamSource(micStream);
-                audioProcessor = audioCtx.createScriptProcessor(4096, 1, 1);
-                
-                audioProcessor.onaudioprocess = (e) => {
-                    if (!systemMicActive) return;
-                    const inputData = e.inputBuffer.getChannelData(0);
-                    const pcmData = new Int16Array(inputData.length);
-                    for (let i = 0; i < inputData.length; i++) {
-                        pcmData[i] = Math.max(-1, Math.min(1, inputData[i])) * 0x7FFF;
-                    }
-                    if (ws && ws.readyState === WebSocket.OPEN) {
-                        ws.send(pcmData.buffer);
-                    }
-                };
+            audioProcessor.onaudioprocess = (e) => {
+                const inputData = e.inputBuffer.getChannelData(0);
+                const pcmData   = new Int16Array(inputData.length);
+                for (let i = 0; i < inputData.length; i++) {
+                    pcmData[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768));
+                }
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(pcmData.buffer);
+                }
+            };
 
-                source.connect(audioProcessor);
-                audioProcessor.connect(audioCtx.destination);
+            source.connect(audioProcessor);
+            audioProcessor.connect(audioCtx.destination);
 
-                systemMicActive = true;
-                status.innerText = "[PC_MIC_ACTIVE]";
-                status.style.color = "var(--neon-green)";
-                btn.style.color = 'var(--neon-green)';
-                btn.style.borderColor = 'var(--neon-green)';
-                btn.style.boxShadow = '0 0 15px var(--neon-green)';
-                
-                ws.send(JSON.stringify({
-                    topic: "mordomo.audio.capture.open",
-                    payload: { source: "browser-pc" }
-                }));
-
-            } catch (err) {
-                addTermLine('bridge', `ERR: MIC_ERROR: ${err.message}`);
-                status.innerText = "[ACCESS_DENIED]";
-            }
-        } else {
-            addTermLine('bridge', `>> COMMAND: [MIC_CLOSE_REQUEST]`);
-            if (micStream) micStream.getTracks().forEach(t => t.stop());
-            if (audioCtx) audioCtx.close();
-            
-            systemMicActive = false;
-            status.innerText = "[SYSTEM_STANDBY]";
-            status.style.color = "";
-            btn.style.color = '';
-            btn.style.borderColor = '';
-            btn.style.boxShadow = '';
-            
-            ws.send(JSON.stringify({
-                topic: "mordomo.audio.capture.close",
-                payload: { source: "browser-pc" }
-            }));
+            status.innerText = '[MIC_LIVE — LISTENING]';
+            status.style.color = 'var(--neon-green)';
+            addTermLine('vad', '>> MIC AUTO-STARTED — streaming to pipeline');
+        } catch (err) {
+            status.innerText = `[MIC_ERROR: ${err.message}]`;
+            status.style.color = '#ff5f56';
+            console.error('Mic error:', err);
         }
     }
 
-    document.getElementById('power-btn').addEventListener('click', handlePowerClick);
+    ws.onopen = () => {
+        document.getElementById('conn-status').innerText = 'SOCKET: ESTABLISHED';
+        document.getElementById('conn-status').style.color = 'var(--neon-green)';
+        startMic();
+    };
 
     async function simulate() {
         const text = document.getElementById('sim-text').value;
         if (!text) return;
-        ws.send(JSON.stringify({
-            topic: "mordomo.debug.simulate",
-            payload: { text: text }
-        }));
+        ws.send(JSON.stringify({ topic: "mordomo.debug.simulate", payload: { text } }));
         document.getElementById('sim-text').value = '';
     }
 </script>
