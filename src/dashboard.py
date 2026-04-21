@@ -165,6 +165,89 @@ async def wizard_page(request: Request, mode: str = "persona", target: str = "se
     if not user: return RedirectResponse(url="/")
     return templates.TemplateResponse(request=request, name="wizard.html", context={"user": user, "mode": mode, "target": target})
 
+OPENCLAW_CONFIG_PATH = os.getenv("OPENCLAW_CONFIG_PATH", "/openclaw-config/openclaw.json")
+
+OPENCLAW_PROVIDERS = {
+    "openai":    {"name": "OpenAI",    "models": ["gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini", "o4-mini"]},
+    "anthropic": {"name": "Anthropic", "models": ["claude-sonnet-4-20250514", "claude-3.5-sonnet-20241022", "claude-3-haiku-20240307"]},
+    "groq":      {"name": "Groq",      "models": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"]},
+    "google":    {"name": "Google",    "models": ["gemini-2.5-flash", "gemini-2.5-pro"]},
+}
+
+def _read_openclaw_config():
+    """Read current openclaw config to detect if a provider is already set."""
+    try:
+        with open(OPENCLAW_CONFIG_PATH, "r") as f:
+            raw = f.read()
+        # Simple detection: check if models.providers has a real provider key
+        for pid in OPENCLAW_PROVIDERS:
+            if f'"{pid}"' in raw or f"  {pid}:" in raw:
+                # Try to extract the API key (masked)
+                import re
+                key_match = re.search(r'apiKey:\s*"([^"]+)"', raw)
+                api_key = key_match.group(1) if key_match else ""
+                model_match = re.search(r'model:\s*"([^"]+)"', raw)
+                model = model_match.group(1) if model_match else ""
+                return {"provider": pid, "api_key": api_key, "model": model, "configured": True}
+    except:
+        pass
+    return {"provider": "", "api_key": "", "model": "", "configured": False}
+
+def _write_openclaw_config(provider: str, api_key: str, model: str):
+    """Write a clean openclaw.json with the selected provider."""
+    config = f"""// OpenClaw — Mordomo Gateway Config
+// Provider configured via AslamSys People Dashboard
+{{
+  gateway: {{
+    port: 18789,
+    bind: "lan",
+    auth: {{
+      mode: "token",
+      token: "${{OPENCLAW_GATEWAY_TOKEN}}",
+    }},
+    controlUi: {{
+      allowedOrigins: ["*"],
+      allowInsecureAuth: true,
+      dangerouslyDisableDeviceAuth: true,
+    }},
+  }},
+
+  models: {{
+    providers: {{
+      {provider}: {{
+        apiKey: "{api_key}",
+      }},
+    }},
+  }},
+
+  agents: {{
+    defaults: {{
+      model: "{provider}/{model}",
+    }},
+  }},
+}}
+"""
+    with open(OPENCLAW_CONFIG_PATH, "w") as f:
+        f.write(config)
+
+async def _restart_openclaw_container():
+    """Restart the OpenClaw container via Docker Engine API over Unix socket."""
+    transport = httpx.AsyncHTTPTransport(uds="/var/run/docker.sock")
+    async with httpx.AsyncClient(transport=transport, base_url="http://docker") as client:
+        await client.post("/containers/mordomo-openclaw-agent/restart", params={"t": 5}, timeout=30.0)
+
+async def _get_openclaw_container_status():
+    """Check the OpenClaw container status via Docker Engine API."""
+    try:
+        transport = httpx.AsyncHTTPTransport(uds="/var/run/docker.sock")
+        async with httpx.AsyncClient(transport=transport, base_url="http://docker") as client:
+            resp = await client.get("/containers/mordomo-openclaw-agent/json", timeout=5.0)
+            if resp.status_code == 200:
+                return resp.json()["State"]["Status"]
+    except:
+        pass
+    return "unknown"
+
 @app.get("/openclaw-guide", response_class=HTMLResponse)
 async def openclaw_guide_page(request: Request, user: dict = Depends(get_current_user)):
     if not user: return RedirectResponse(url="/")
@@ -176,7 +259,40 @@ async def openclaw_guide_page(request: Request, user: dict = Depends(get_current
                 token = resp.json().get("OPENCLAW_GATEWAY_TOKEN", "Não Gerado (Reinicie o Orchestrator)")
     except:
         pass
-    return templates.TemplateResponse(request=request, name="openclaw_guide.html", context={"token": token})
+
+    config = _read_openclaw_config()
+    return templates.TemplateResponse(request=request, name="openclaw_guide.html", context={
+        "token": token,
+        "providers": OPENCLAW_PROVIDERS,
+        "current_config": config,
+    })
+
+@app.post("/openclaw-config")
+async def save_openclaw_config(
+    request: Request,
+    provider: str = Form(...),
+    api_key: str = Form(...),
+    model: str = Form(...),
+    user: dict = Depends(get_current_user)
+):
+    if not user or not user.get("is_owner"):
+        return JSONResponse({"error": "unauthorized"}, status_code=403)
+    if provider not in OPENCLAW_PROVIDERS:
+        return JSONResponse({"error": "invalid provider"}, status_code=400)
+
+    _write_openclaw_config(provider, api_key, model)
+
+    # Restart the container in background
+    asyncio.create_task(_restart_openclaw_container())
+
+    return JSONResponse({"status": "restarting", "message": "Configuração salva. OpenClaw reiniciando..."})
+
+@app.get("/openclaw-status")
+async def openclaw_status(request: Request, user: dict = Depends(get_current_user)):
+    if not user:
+        return JSONResponse({"error": "unauthorized"}, status_code=403)
+    container_status = await _get_openclaw_container_status()
+    return JSONResponse({"status": container_status})
 
 @app.post("/vault/save")
 async def save_vault_keys(

@@ -3,76 +3,190 @@
 {% block title %}OpenClaw Agent Setup{% endblock %}
 
 {% block content %}
-<div style="display: flex; justify-content: center; align-items: center; min-height: 80vh;">
-    <div class="glass-card" style="width: 100%; max-width: 650px; padding: 40px; text-align: center;">
-        <span class="section-label" style="color: #22c55e;">OPENCLAW INDEPENDENT AGENT</span>
-        <h2 style="margin-bottom: 20px;">Guia de Automação & WhatsApp</h2>
-        <p style="color: var(--text-dim); margin-bottom: 30px;">
-            O OpenClaw roda em um container completamente isolado do AslamSys. Toda a governança, regras de mensagem e escaneamento do WhatsApp são feitas diretamente no painel fornecido pelo próprio OpenClaw. Nós não intervimos nas variáveis internas dele.
-        </p>
-
-        <!-- Access OpenClaw Panel Button -->
-        <button type="button" class="btn btn-outline" style="border-color: #22c55e; color: #22c55e; width: 100%; margin-bottom: 15px; font-size: 1.1rem; padding: 15px;" onclick="window.open(window.location.protocol + '//' + window.location.hostname + ':18789/?token={{ token }}', '_blank')">
-            <b>🌐 Acessar Portal do OpenClaw</b> <span style="font-size: 0.9em;">↗</span>
-        </button>
-
-        <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 15px; margin-bottom: 30px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-            <span style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Seu Gateway Token (Senha de Acesso)</span>
-            <code style="color: #22c55e; font-size: 1.3rem; font-weight: bold; background: transparent; padding: 0;">{{ token }}</code>
+<div style="display: flex; justify-content: center; align-items: flex-start; min-height: 80vh; padding-top: 40px;">
+    <div class="glass-card" style="width: 100%; max-width: 700px; padding: 40px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+            <span class="section-label" style="color: #22c55e;">OPENCLAW INDEPENDENT AGENT</span>
+            <h2 style="margin-bottom: 10px;">Configuração do Agente</h2>
+            <p style="color: var(--text-dim); font-size: 0.9rem;">
+                Configure o provedor de IA e depois acesse o painel do OpenClaw para gerenciar canais (WhatsApp, Telegram, etc.)
+            </p>
         </div>
 
-        <h4 style="text-align: left; margin-bottom: 15px;">Como configurar:</h4>
-        <div style="padding: 20px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 12px; text-align: left; margin-bottom: 30px;">
-            <div style="display: flex; gap: 15px; margin-bottom: 15px;">
-                <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">1</div>
-                <div>
-                    <strong style="display: block; margin-bottom: 5px;">Acesse a interface clicando no botão acima</strong>
-                    <span style="font-size: 0.85rem; color: var(--text-dim);">Ele te levará ao endereço padrão do agente (porta 18789). Lá você gerencia Webhooks e integrações nativas dele.</span>
-                </div>
-            </div>
-            
-            <div style="display: flex; gap: 15px; margin-bottom: 15px;">
-                <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">2</div>
-                <div>
-                    <strong style="display: block; margin-bottom: 5px;">Escaneamento Terminal / Logs</strong>
-                    <span style="font-size: 0.85rem; color: var(--text-dim);">Se o painel do OpenClaw exigir o QR via terminal para pareamento Nativo Baileys, conecte-se ao seu servidor via SSH:</span>
-                    <code style="display: block; background: rgba(0,0,0,0.3); padding: 10px; margin-top: 10px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">docker logs -f mordomo-openclaw-agent</code>
-                </div>
-            </div>
+        <!-- ═══ Step 1: Provider Config ═══ -->
+        <div id="config-section" style="margin-bottom: 30px;">
+            <h4 style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.8rem; flex-shrink: 0;">1</div>
+                Provedor de IA
+            </h4>
+            <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 12px; padding: 20px;">
+                <form id="openclaw-config-form" onsubmit="return saveConfig(event)">
+                    <!-- Provider Selector -->
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;">Provider</label>
+                    <select name="provider" id="provider-select" onchange="updateModels()" style="width: 100%; background: rgba(0,0,0,0.3); color: white; border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 0.95rem; margin-bottom: 15px; cursor: pointer;">
+                        <option value="" disabled {% if not current_config.configured %}selected{% endif %}>Selecione um provedor...</option>
+                        {% for pid, pdata in providers.items() %}
+                        <option value="{{ pid }}" {% if current_config.provider == pid %}selected{% endif %}>{{ pdata.name }}</option>
+                        {% endfor %}
+                    </select>
 
-            <div style="display: flex; gap: 15px;">
-                <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">3</div>
-                <div>
-                    <strong style="display: block; margin-bottom: 5px;">Operação Conjunta via NATS</strong>
-                    <span style="font-size: 0.85rem; color: var(--text-dim);">Quando finalizado, o OpenClaw estará 100% vivo. Todos os comandos processados por ele (ex. do WhatsApp) que demandarem uso do Mordomo, ele disparará um evento <code style="font-size: 0.8em; color: var(--text-bright);">mordomo.orchestrator.request</code> que nosso Cerebro processará para você!</span>
-                </div>
-            </div>
-        </div>
-
-        <div style="padding: 20px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 12px; text-align: left; margin-bottom: 30px;">
-            <div style="display: flex; gap: 15px; margin-bottom: 10px;">
-                <div style="font-size: 1.5rem;">⚠️</div>
-                <div style="width: 100%;">
-                    <h4 style="color: #f59e0b; margin-bottom: 8px;">Erro: "Control UI requires device identity"</h4>
-                    <p style="font-size: 0.85rem; color: var(--text-dim); line-height: 1.4; margin-bottom: 10px;">
-                        Por segurança, o portal do OpenClaw utiliza criptografia avançada (<code style="color:#22c55e">crypto.subtle</code>) para parear o seu dispositivo. Navegadores bloqueiam essa função quando você acessa via IP de rede local (ex: <code style="color:#22c55e">http://...</code>) ao invés de <code style="color:#22c55e">localhost</code>.
-                    </p>
-                    <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px; font-size: 0.85rem; color: #fff;">
-                        <b>Para resolver em 1 minuto:</b><br><br>
-                        1. Digite na barra de endereços do seu Chrome/Edge: <code style="color:#60a5fa">chrome://flags/#unsafely-treat-insecure-origin-as-secure</code> (ou <code style="color:#60a5fa">edge://flags...</code>)<br>
-                        2. No campo de texto que irá piscar, cole as duas URLs divididas por vírgula para liberar o Áudio do Aslam e o OpenClaw juntos:<br>
-                        <code style="color:#60a5fa">http://{{ request.url.hostname }}:8000,http://{{ request.url.hostname }}:18789</code><br>
-                        3. Altere o seletor à direita de "Default" para <b>Enabled</b>.<br>
-                        4. Clique no botão <b>Relaunch</b> (Reiniciar) que aparecerá no fundo da tela.<br><br>
-                        Pronto! O navegador entenderá que a sua rede local é segura e o token passará sem problemas.
+                    <!-- API Key -->
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;">API Key</label>
+                    <div style="position: relative; margin-bottom: 15px;">
+                        <input type="password" name="api_key" id="api-key-input" placeholder="sk-..." value="{{ current_config.api_key if current_config.configured else '' }}" required
+                            style="width: 100%; background: rgba(0,0,0,0.3); color: white; border: 1px solid var(--border); border-radius: 8px; padding: 12px; padding-right: 45px; font-size: 0.95rem; font-family: monospace;">
+                        <button type="button" onclick="toggleKeyVisibility()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1.1rem;">👁</button>
                     </div>
+
+                    <!-- Model Selector -->
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;">Modelo Padrão</label>
+                    <select name="model" id="model-select" required style="width: 100%; background: rgba(0,0,0,0.3); color: white; border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 0.95rem; margin-bottom: 20px; cursor: pointer;">
+                        <option value="" disabled selected>Selecione um modelo...</option>
+                    </select>
+
+                    <!-- Submit -->
+                    <button type="submit" id="save-btn" class="btn btn-primary" style="width: 100%; padding: 14px; font-size: 1rem; justify-content: center; border-radius: 10px;">
+                        💾 Salvar Configuração e Reiniciar Agente
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ═══ Restart Status ═══ -->
+        <div id="restart-overlay" style="display: none; margin-bottom: 30px;">
+            <div style="background: rgba(124, 58, 237, 0.1); border: 1px solid rgba(124, 58, 237, 0.3); border-radius: 12px; padding: 30px; text-align: center;">
+                <div id="restart-spinner" style="margin-bottom: 15px;">
+                    <div style="width: 40px; height: 40px; border: 3px solid rgba(124, 58, 237, 0.2); border-top: 3px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+                </div>
+                <h3 id="restart-title" style="margin-bottom: 8px; color: var(--primary);">Reiniciando OpenClaw...</h3>
+                <p id="restart-message" style="color: var(--text-dim); font-size: 0.85rem;">Aplicando nova configuração de IA. Isso leva ~15 segundos.</p>
+                <div id="restart-progress" style="margin-top: 15px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden;">
+                    <div style="height: 100%; background: var(--primary); animation: progress 15s ease-out forwards; width: 0%;"></div>
                 </div>
             </div>
         </div>
 
-        <button class="btn" style="background: rgba(255,255,255,0.05); color: var(--text-bright); width: 100%; border: 1px solid rgba(255,255,255,0.1);" onclick="window.location.href='/#sect-vault'">
-            ⬅ Voltar ao Inventário Vault
+        <!-- ═══ Step 2: Access Portal ═══ -->
+        <div style="margin-bottom: 30px;">
+            <h4 style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                <div style="width: 28px; height: 28px; border-radius: 50%; background: {% if current_config.configured %}#22c55e{% else %}rgba(255,255,255,0.1){% endif %}; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.8rem; flex-shrink: 0;">2</div>
+                Painel do OpenClaw
+            </h4>
+            <button type="button" id="portal-btn" class="btn btn-outline" style="border-color: #22c55e; color: #22c55e; width: 100%; font-size: 1.05rem; padding: 15px; {% if not current_config.configured %}opacity: 0.4; pointer-events: none;{% endif %}" onclick="window.open(window.location.protocol + '//' + window.location.hostname + ':18789/?token={{ token }}', '_blank')">
+                <b>🌐 Acessar Portal do OpenClaw</b> <span style="font-size: 0.9em;">↗</span>
+            </button>
+            <p style="font-size: 0.75rem; color: var(--text-dim); margin-top: 8px; text-align: center;">
+                {% if current_config.configured %}
+                    Configurado com <b style="color: var(--text-bright);">{{ providers[current_config.provider].name }}</b> • Modelo: <b style="color: var(--text-bright);">{{ current_config.model }}</b>
+                {% else %}
+                    Configure o provedor de IA acima antes de acessar o portal.
+                {% endif %}
+            </p>
+        </div>
+
+        <!-- ═══ Token Info ═══ -->
+        <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px;">Gateway Token</span>
+            <code style="color: #22c55e; font-size: 0.85rem; font-weight: bold; background: transparent;">{{ token }}</code>
+        </div>
+
+        <!-- ═══ Chrome Flags Help ═══ -->
+        <details style="margin-bottom: 20px;">
+            <summary style="cursor: pointer; color: #f59e0b; font-size: 0.85rem; font-weight: bold;">⚠️ Erro de Rede Local? (Chrome Flags)</summary>
+            <div style="padding: 15px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 0 0 8px 8px; margin-top: 5px; font-size: 0.8rem; color: var(--text-dim); line-height: 1.5;">
+                Se aparecer <b>"Control UI requires device identity"</b> ou o microfone não funcionar:<br><br>
+                1. Abra <code style="color:#60a5fa">chrome://flags/#unsafely-treat-insecure-origin-as-secure</code><br>
+                2. Cole: <code style="color:#60a5fa">http://{{ request.url.hostname }}:8000,http://{{ request.url.hostname }}:18789</code><br>
+                3. Mude para <b>Enabled</b> e clique <b>Relaunch</b>.
+            </div>
+        </details>
+
+        <button class="btn" style="background: rgba(255,255,255,0.05); color: var(--text-bright); width: 100%; border: 1px solid rgba(255,255,255,0.1);" onclick="window.location.href='/'">
+            ⬅ Voltar ao Dashboard
         </button>
     </div>
 </div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes progress { to { width: 100%; } }
+select option { background: #1e293b; color: white; }
+</style>
+
+<script>
+const PROVIDERS = {{ providers | tojson }};
+const currentModel = "{{ current_config.model }}";
+
+function updateModels() {
+    const sel = document.getElementById('provider-select');
+    const msel = document.getElementById('model-select');
+    const pid = sel.value;
+    msel.innerHTML = '<option value="" disabled selected>Selecione um modelo...</option>';
+    if (pid && PROVIDERS[pid]) {
+        PROVIDERS[pid].models.forEach(m => {
+            const fullModel = pid + '/' + m;
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m;
+            if (currentModel === fullModel) opt.selected = true;
+            msel.appendChild(opt);
+        });
+    }
+}
+
+function toggleKeyVisibility() {
+    const inp = document.getElementById('api-key-input');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+async function saveConfig(e) {
+    e.preventDefault();
+    const form = document.getElementById('openclaw-config-form');
+    const btn = document.getElementById('save-btn');
+    const overlay = document.getElementById('restart-overlay');
+
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Salvando...';
+
+    try {
+        const resp = await fetch('/openclaw-config', { method: 'POST', body: new FormData(form) });
+        const data = await resp.json();
+
+        if (!resp.ok) { alert(data.error || 'Erro ao salvar'); btn.disabled = false; btn.innerHTML = '💾 Salvar Configuração e Reiniciar Agente'; return; }
+
+        // Show restart overlay
+        overlay.style.display = 'block';
+        btn.innerHTML = '✓ Configuração Salva';
+
+        // Poll for container status
+        let attempts = 0;
+        const poll = setInterval(async () => {
+            attempts++;
+            try {
+                const sr = await fetch('/openclaw-status');
+                const sd = await sr.json();
+                if (sd.status === 'running' && attempts > 3) {
+                    clearInterval(poll);
+                    document.getElementById('restart-spinner').innerHTML = '<div style="font-size: 2.5rem;">✅</div>';
+                    document.getElementById('restart-title').textContent = 'OpenClaw Operacional!';
+                    document.getElementById('restart-title').style.color = '#22c55e';
+                    document.getElementById('restart-message').textContent = 'Agente reiniciado com a nova configuração de IA.';
+                    document.getElementById('portal-btn').style.opacity = '1';
+                    document.getElementById('portal-btn').style.pointerEvents = 'auto';
+                    btn.disabled = false;
+                }
+            } catch {}
+            if (attempts > 30) clearInterval(poll);
+        }, 2000);
+    } catch (err) {
+        alert('Erro de rede: ' + err.message);
+        btn.disabled = false;
+        btn.innerHTML = '💾 Salvar Configuração e Reiniciar Agente';
+    }
+    return false;
+}
+
+// Pre-populate models on page load if provider is selected
+document.addEventListener('DOMContentLoaded', updateModels);
+</script>
 {% endblock %}
