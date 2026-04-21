@@ -365,43 +365,112 @@
     }
 
     function processSignal(topic, payload) {
-        const rawMsg = typeof payload === 'object' ? JSON.stringify(payload) : payload;
-        
+        const rawMsg = typeof payload === 'object' ? JSON.stringify(payload) : String(payload);
+
+        // ── VAD energy — suporta ambas as chaves "energy" e "rms" ─────────
         if (topic.includes('audio.vad.energy')) {
-            const fill = document.getElementById('vad-fill');
+            const fill  = document.getElementById('vad-fill');
             const meter = document.getElementById('vad-meter');
+            const level = payload.energy ?? payload.rms ?? 0;
             if (meter) meter.style.display = 'block';
             if (fill) {
-                const percent = Math.min((payload.rms * 400) * 100, 100);
+                const percent = Math.min(level * 4000, 100);
                 fill.style.width = percent + '%';
-                fill.style.background = payload.rms > 0.01 ? '#ff5f56' : '#00ff41';
+                fill.style.background = payload.is_speech ? '#ff5f56' : '#00ff41';
             }
-            if (payload.rms > 0.01) {
-                addTermLine('vad', `>> SIGNAL: ENERGY_LEVEL[${payload.rms.toFixed(4)}]`);
+            if (payload.is_speech || level > 0.01) {
+                const src = payload.source ? `[${payload.source.toUpperCase()}]` : '';
+                addTermLine('vad', `>> FRAME${src} energy=${level.toFixed(4)} speech=${payload.is_speech}`);
             }
             return;
         }
 
+        // ── Mic state ─────────────────────────────────────────────────────
         if (topic.includes('audio.capture.state')) {
-            systemMicActive = payload.enabled;
-            const btn = document.getElementById('power-btn');
+            const btn    = document.getElementById('power-btn');
             const status = document.getElementById('mic-status');
-            
-            if (systemMicActive) {
-                btn.style.color = 'var(--neon-green)';
-                btn.style.borderColor = 'var(--neon-green)';
+            const active = payload.enabled;
+            if (active) {
+                btn.style.color = btn.style.borderColor = 'var(--neon-green)';
                 btn.style.boxShadow = '0 0 15px var(--neon-green)';
-                status.innerText = '[HARDWARE_MIC_ACTIVE]';
+                status.innerText = '[MIC_ACTIVE]';
                 status.style.color = 'var(--neon-green)';
             } else {
-                btn.style.color = '';
-                btn.style.borderColor = '';
-                btn.style.boxShadow = '';
-                status.innerText = '[HARDWARE_MIC_STANDBY]';
+                btn.style.color = btn.style.borderColor = btn.style.boxShadow = '';
+                status.innerText = '[SYSTEM_STANDBY]';
                 status.style.color = '';
-                document.getElementById('vad-fill').style.width = '0%';
+                const fill = document.getElementById('vad-fill');
+                if (fill) fill.style.width = '0%';
             }
+            addTermLine('vad', `>> MIC_STATE: ${active ? 'OPEN' : 'CLOSED'} src=${payload.source||'?'}`);
+            return;
         }
+
+        // ── Wake Word ─────────────────────────────────────────────────────
+        if (topic.includes('wake_word.detected')) {
+            const conf = payload.confidence ? payload.confidence.toFixed(3) : '?';
+            addTermLine('wake', `★★ DETECTED keyword=${payload.keyword} conf=${conf} session=${(payload.session_id||'?').slice(0,8)}`);
+            addTermLine('bridge', `WAKE_WORD >> ${payload.keyword} (${conf})`, true);
+            return;
+        }
+
+        // ── Speaker Verification / Bio ────────────────────────────────────
+        if (topic.includes('speaker.verified')) {
+            addTermLine('bio', `✓ SPEAKER VERIFIED: ${payload.speaker_id||'?'} (score=${payload.score||'?'})`);
+            return;
+        }
+        if (topic.includes('speaker.rejected')) {
+            addTermLine('bio', `✗ SPEAKER REJECTED: unknown voice`);
+            return;
+        }
+        if (topic.includes('audio.snippet')) {
+            addTermLine('bio', `>> SNIPPET recv len=${payload.len||rawMsg.length}`);
+            return;
+        }
+
+        // ── ASR / Whisper ─────────────────────────────────────────────────
+        if (topic.includes('speech.transcribed') || topic.includes('whisper')) {
+            const text = payload.text || rawMsg;
+            addTermLine('asr', `>> TRANSCRIPT [${payload.is_final ? 'FINAL' : 'partial'}]: "${text}"`);
+            return;
+        }
+        if (topic.includes('whisper.asr.status')) {
+            addTermLine('asr', `>> STATE: ${payload.state}`);
+            return;
+        }
+
+        // ── Orchestrator ──────────────────────────────────────────────────
+        if (topic.includes('orchestrator') || topic.includes('conversation')) {
+            addTermLine('orch', `>> ${topic.split('.').pop().toUpperCase()}: ${rawMsg.slice(0,120)}`);
+            return;
+        }
+
+        // ── Brain / LLM ───────────────────────────────────────────────────
+        if (topic.includes('brain') || topic.includes('llm') || topic.includes('response')) {
+            addTermLine('brain', `>> ${rawMsg.slice(0,120)}`);
+            return;
+        }
+
+        // ── TTS ───────────────────────────────────────────────────────────
+        if (topic.includes('tts') || topic.includes('audio.play')) {
+            addTermLine('tts', `>> ${topic}: ${rawMsg.slice(0,80)}`);
+            return;
+        }
+
+        // ── IoT / Actions ─────────────────────────────────────────────────
+        if (topic.includes('iot') || topic.includes('action') || topic.includes('command')) {
+            addTermLine('actions', `>> ${topic}: ${rawMsg.slice(0,80)}`);
+            return;
+        }
+
+        // ── Gateway ───────────────────────────────────────────────────────
+        if (topic.includes('gateway') || topic.includes('litellm') || topic.includes('bifrost')) {
+            addTermLine('gateway', `>> ${topic}: ${rawMsg.slice(0,80)}`);
+            return;
+        }
+
+        // ── Fallback: tudo vai pro bridge ─────────────────────────────────
+        addTermLine('bridge', `[${topic}] ${rawMsg.slice(0,100)}`, true);
     }
 
     let audioCtx;
