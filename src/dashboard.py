@@ -245,11 +245,22 @@ def _write_openclaw_config(provider: str, api_key: str, model: str):
     # NEW: Wipe the 'agents' directory to force OpenClaw to recreate the default agent 
     # using the NEW global provider/model settings. This prevents "No API key found for openai" errors.
     try:
-        import shutil
-        agents_path = os.path.join(os.path.dirname(OPENCLAW_CONFIG_PATH), "agents")
+        # Wipe agents folder to prevent stale profiles/auth errors
+        data_dir = os.path.dirname(OPENCLAW_CONFIG_PATH)
+        agents_path = os.path.join(data_dir, "agents")
         if os.path.exists(agents_path):
             shutil.rmtree(agents_path)
-            logger.info(f"Wiped OpenClaw agents directory at {agents_path}")
+            
+        # Also clean workspace instruction files (BOOTSTRAP, HEARTBEAT, etc) 
+        # to ensure the agent doesn't get stuck in "bootstrap mode"
+        workspace_path = os.path.join(data_dir, "workspace")
+        if os.path.exists(workspace_path):
+            for f in ["BOOTSTRAP.md", "HEARTBEAT.md", "PLAN.md", "TODO.md"]:
+                fpath = os.path.join(workspace_path, f)
+                if os.path.exists(fpath):
+                    os.remove(fpath)
+                    
+        print(f"OpenClaw state wiped at {data_dir}")
     except Exception as e:
         logger.error(f"Failed to wipe agents directory: {e}")
 
