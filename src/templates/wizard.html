@@ -192,13 +192,49 @@
                     <!-- Mandatory: Groq for Brain -->
                     <div class="glass-card" style="padding: 20px; border-left: 4px solid var(--primary);">
                         <label class="input-label" style="display: flex; justify-content: space-between;">
-                            GROQ_API_KEY (Combustível Neural)
+                            GROQ_API_KEY (Combustível Neural Mínimo)
                             <span style="font-size: 0.7rem; color: {% if vault.GROQ_API_KEY == 'ready' %}var(--primary){% else %}#ef4444{% endif %};">
                                 {{ (vault.GROQ_API_KEY or 'missing')|upper }}
                             </span>
                         </label>
-                        <p style="font-size: 0.7rem; color: var(--text-dim); margin-bottom: 10px;">Chave obrigatória para que o Brain consiga orquestrar as intenções.</p>
+                        <p style="font-size: 0.7rem; color: var(--text-dim); margin-bottom: 10px;">Chave <b>obrigatória</b> para que o Brain consiga orquestrar as intenções básicas.</p>
                         <input type="password" name="groq_key" class="input-field" placeholder="gsk_..." required>
+                    </div>
+
+                    <!-- Optional: GitHub Token for OpenClaw -->
+                    <div class="glass-card" style="padding: 20px; border-left: 4px solid #ef4444; margin-top: 15px;">
+                        <label class="input-label" style="display: flex; justify-content: space-between;">
+                            GITHUB_TOKEN (Autenticação do Agente OpenClaw)
+                            <span style="font-size: 0.7rem; color: {% if vault.GITHUB_TOKEN == 'ready' %}var(--primary){% else %}#ef4444{% endif %};">
+                                {{ (vault.GITHUB_TOKEN or 'missing')|upper }}
+                            </span>
+                        </label>
+                        <p style="font-size: 0.7rem; color: var(--text-dim); margin-bottom: 10px;">Necessário para o OpenClaw gerenciar código. Pelo menos um modelo cognitivo avançado abaixo é necessário se ativá-lo.</p>
+                        <input type="password" name="github_token" class="input-field" placeholder="ghp_...">
+                    </div>
+
+                    <!-- Optional: Anthropic for OpenClaw Logic -->
+                    <div class="glass-card" style="padding: 20px; border-left: 4px solid #ef4444; margin-top: 15px;">
+                        <label class="input-label" style="display: flex; justify-content: space-between;">
+                            ANTHROPIC_API_KEY (Modelo Lógico OpenClaw)
+                            <span style="font-size: 0.7rem; color: {% if vault.ANTHROPIC_API_KEY == 'ready' %}var(--primary){% else %}var(--text-dim){% endif %};">
+                                {{ (vault.ANTHROPIC_API_KEY or 'missing')|upper }}
+                            </span>
+                        </label>
+                        <p style="font-size: 0.7rem; color: var(--text-dim); margin-bottom: 10px;">Recomendado Claude 3.5 Sonnet para melhor execução de código.</p>
+                        <input type="password" name="anthropic_key" class="input-field" placeholder="sk-ant-...">
+                    </div>
+
+                    <!-- Optional: OpenAI for OpenClaw Fallback -->
+                    <div class="glass-card" style="padding: 20px; border-left: 4px solid #ef4444; margin-top: 15px;">
+                        <label class="input-label" style="display: flex; justify-content: space-between;">
+                            OPENAI_API_KEY (Modelo Embutido / Fallback)
+                            <span style="font-size: 0.7rem; color: {% if vault.OPENAI_API_KEY == 'ready' %}var(--primary){% else %}var(--text-dim){% endif %};">
+                                {{ (vault.OPENAI_API_KEY or 'missing')|upper }}
+                            </span>
+                        </label>
+                        <p style="font-size: 0.7rem; color: var(--text-dim); margin-bottom: 10px;">Usado para embeddings, ou fallback caso o Claude falhe.</p>
+                        <input type="password" name="openai_key" class="input-field" placeholder="sk-proj-...">
                     </div>
                 </div>
 

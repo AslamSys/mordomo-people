@@ -94,10 +94,7 @@ async def seed_vault():
         {"key": "DATABASE_URL", "value": os.environ.get("DATABASE_URL")},
         {"key": "PEOPLE_MASTER_KEY", "value": os.environ.get("PEOPLE_MASTER_KEY")},
         {"key": "BIFROST_API_KEY", "value": "bt_" + secrets.token_urlsafe(24)},
-        {"key": "SESSION_SECRET", "value": secrets.token_urlsafe(24)},
-        {"key": "GITHUB_TOKEN", "value": os.environ.get("GITHUB_TOKEN")},
-        {"key": "ANTHROPIC_API_KEY", "value": os.environ.get("ANTHROPIC_API_KEY")},
-        {"key": "OPENAI_API_KEY", "value": os.environ.get("OPENAI_API_KEY")}
+        {"key": "SESSION_SECRET", "value": secrets.token_urlsafe(24)}
     ]
     existing_keys = {}
     async with httpx.AsyncClient() as client:
@@ -163,10 +160,25 @@ async def wizard_page(request: Request, mode: str = "persona", target: str = "se
     return templates.TemplateResponse(request=request, name="wizard.html", context={"user": user, "mode": mode, "target": target})
 
 @app.post("/vault/save")
-async def save_vault_keys(request: Request, groq_key: str = Form(None), user: dict = Depends(get_current_user)):
+async def save_vault_keys(
+    request: Request,
+    groq_key: str = Form(None),
+    github_token: str = Form(None),
+    anthropic_key: str = Form(None),
+    openai_key: str = Form(None),
+    user: dict = Depends(get_current_user)
+):
     if not user or not user.get("is_owner"):
         return JSONResponse({"error": "unauthorized"}, status_code=status.HTTP_403_FORBIDDEN)
-    if groq_key:
-        async with httpx.AsyncClient() as client:
+    
+    async with httpx.AsyncClient() as client:
+        if groq_key:
             await client.post(f"{VAULT_URL}/set", json={"key": "GROQ_API_KEY", "value": groq_key})
+        if github_token:
+            await client.post(f"{VAULT_URL}/set", json={"key": "GITHUB_TOKEN", "value": github_token})
+        if anthropic_key:
+            await client.post(f"{VAULT_URL}/set", json={"key": "ANTHROPIC_API_KEY", "value": anthropic_key})
+        if openai_key:
+            await client.post(f"{VAULT_URL}/set", json={"key": "OPENAI_API_KEY", "value": openai_key})
+
     return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
