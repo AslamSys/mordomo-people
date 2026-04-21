@@ -173,6 +173,22 @@
         }
         .btn-send:hover { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 4px 15px rgba(0,255,65,0.3); }
 
+        /* Energy Meter */
+        .energy-meter {
+            height: 4px;
+            background: #111;
+            margin-top: 5px;
+            border-radius: 2px;
+            overflow: hidden;
+            display: none;
+        }
+        .energy-fill {
+            height: 100%;
+            background: var(--neon-green);
+            width: 0%;
+            transition: width 0.1s;
+        }
+
     </style>
 </head>
 <body>
@@ -196,6 +212,7 @@
                 <span>mordomo.audio.capture</span><div>_ □ x</div>
             </div>
             <div class="term-body" id="body-vad"></div>
+            <div class="energy-meter" id="vad-meter"><div class="energy-fill" id="vad-fill"></div></div>
         </div>
 
         <!-- Wake Word -->
@@ -285,7 +302,8 @@
 </div>
 
 <div class="action-bar">
-    <button class="mic-trigger" id="talk-btn"><i class="fas fa-microphone"></i></button>
+    <button class="mic-trigger" id="talk-btn" title="Simulate from Browser"><i class="fas fa-microphone"></i></button>
+    <button class="mic-trigger" id="hw-monitor-btn" title="Monitor Orange Pi Mic"><i class="fas fa-microchip"></i></button>
     <div id="mic-status" style="font-size: 0.75rem; color: var(--text-dim); width: 160px; font-weight: bold;">[OS_IDLE]</div>
     <input type="text" id="sim-text" class="sim-input" placeholder="root@mordomo:~# simulate --text 'command here'">
     <button onclick="simulate()" class="btn-send">INJECT_CMD</button>
@@ -342,6 +360,19 @@
         // Log raw topic to Bridge for debugging
         const rawMsg = typeof payload === 'object' ? JSON.stringify(payload) : payload;
         
+        if (topic.includes('audio.vad.energy')) {
+            const fill = document.getElementById('vad-fill');
+            const percent = Math.min((payload.energy / 5000) * 100, 100);
+            if (fill) {
+                fill.style.width = percent + '%';
+                fill.style.background = payload.is_speech ? '#ff5f56' : '#00ff41';
+            }
+            if (payload.is_speech) {
+                addTermLine('vad', `>> SPEECH_DETECTED [RMS: ${payload.energy}]`);
+            }
+            return; // Energy is too noisy for bridge
+        }
+
         if (topic.includes('audio.stream')) {
             addTermLine('vad', `>> BYTES_RCV: [${payload.length || 'RAW'}]`);
         } else if (topic.includes('wake_word.detected')) {
@@ -421,6 +452,24 @@
             isRecording = false;
             talkBtn.classList.remove('recording');
             micStatus.innerText = '[OS_IDLE]';
+        }
+    // Hardware Monitor Trigger
+    const hwBtn = document.getElementById('hw-monitor-btn');
+    const vadMeter = document.getElementById('vad-meter');
+    let isHwMonitoring = false;
+
+    hwBtn.onclick = () => {
+        isHwMonitoring = !isHwMonitoring;
+        if (isHwMonitoring) {
+            hwBtn.classList.add('recording');
+            vadMeter.style.display = 'block';
+            micStatus.innerText = '[OS_MONITORING_HW]';
+            addTermLine('vad', '>> HW_MONITOR_ON: Listening to Orange Pi energy levels...');
+        } else {
+            hwBtn.classList.remove('recording');
+            vadMeter.style.display = 'none';
+            micStatus.innerText = '[OS_IDLE]';
+            addTermLine('vad', '>> HW_MONITOR_OFF');
         }
     };
 </script>
