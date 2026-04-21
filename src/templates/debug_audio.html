@@ -435,14 +435,16 @@
     let stream;
 
     function updateStatus(text, logMsg) {
-        const status = document.getElementById('mic-status');
-        status.innerText = `[${text}]`;
+        const s = document.getElementById('mic-status');
+        s.innerText = `[${text}]`;
         addTermLine('bridge', `>> SYSTEM: ${logMsg}`);
     }
 
     async function toggleMic() {
-        if (!isMicActive) {
+        const btn = document.getElementById('power-btn');
+        if (!isMicOpen) {
             try {
+                addTermLine('bridge', `>> COMMAND: [MIC_OPEN_REQUEST]`);
                 // 1. Request Browser Mic
                 stream = await navigator.mediaDevices.getUserMedia({ audio: { 
                     channelCount: 1, 
@@ -454,20 +456,15 @@
                 audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
                 const source = audioContext.createMediaStreamSource(stream);
                 
-                // Use ScriptProcessor for max compatibility with the debug monitor
+                // Use ScriptProcessor for max compatibility
                 processor = audioContext.createScriptProcessor(4096, 1, 1);
-                
                 processor.onaudioprocess = (e) => {
-                    if (!isMicActive) return;
+                    if (!isMicOpen) return;
                     const inputData = e.inputBuffer.getChannelData(0);
-                    
-                    // Convert to Float32 to Int16
                     const pcmData = new Int16Array(inputData.length);
                     for (let i = 0; i < inputData.length; i++) {
                         pcmData[i] = Math.max(-1, Math.min(1, inputData[i])) * 0x7FFF;
                     }
-                    
-                    // Send RAW PCM
                     if (ws && ws.readyState === WebSocket.OPEN) {
                         ws.send(pcmData.buffer);
                     }
@@ -476,11 +473,12 @@
                 source.connect(processor);
                 processor.connect(audioContext.destination);
 
-                isMicActive = true;
+                isMicOpen = true;
                 updateStatus("HARDWARE_MIC_ACTIVE", "PC MICROPHONE LIVE");
-                document.getElementById('power-btn').classList.add('active');
+                btn.style.color = 'var(--neon-green)';
+                btn.style.borderColor = 'var(--neon-green)';
+                btn.style.boxShadow = '0 0 15px var(--neon-green)';
                 
-                // Notify backend to prepare VAD (Optional)
                 ws.send(JSON.stringify({
                     topic: "mordomo.audio.capture.open",
                     payload: { source: "browser-pc", sample_rate: 16000 }
@@ -492,13 +490,15 @@
                 updateStatus("OFFLINE", "CHECK MIC PERMISSIONS");
             }
         } else {
-            // Stop everything
+            addTermLine('bridge', `>> COMMAND: [MIC_CLOSE_REQUEST]`);
             if (stream) stream.getTracks().forEach(t => t.stop());
             if (audioContext) audioContext.close();
             
-            isMicActive = false;
+            isMicOpen = false;
             updateStatus("HARDWARE_MIC_STANDBY", "PC MIC DISCONNECTED");
-            document.getElementById('power-btn').classList.remove('active');
+            btn.style.color = '';
+            btn.style.borderColor = '';
+            btn.style.boxShadow = '';
             
             ws.send(JSON.stringify({
                 topic: "mordomo.audio.capture.close",
