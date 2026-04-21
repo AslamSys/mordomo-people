@@ -372,11 +372,11 @@
             const meter = document.getElementById('vad-meter');
             if (meter) meter.style.display = 'block';
             if (fill) {
-                const percent = Math.min((payload.rms * 1000) * 100, 100);
+                const percent = Math.min((payload.rms * 400) * 100, 100);
                 fill.style.width = percent + '%';
-                fill.style.background = payload.rms > 0.05 ? '#ff5f56' : '#00ff41';
+                fill.style.background = payload.rms > 0.01 ? '#ff5f56' : '#00ff41';
             }
-            if (payload.rms > 0.05) {
+            if (payload.rms > 0.01) {
                 addTermLine('vad', `>> SIGNAL: ENERGY_LEVEL[${payload.rms.toFixed(4)}]`);
             }
             return;
