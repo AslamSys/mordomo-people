@@ -74,7 +74,7 @@ async def get_system_status(request: Request):
 async def get_vault_health():
     essential_keys = [
         "GROQ_API_KEY", "BIFROST_API_KEY", "DATABASE_URL", "PEOPLE_MASTER_KEY",
-        "GITHUB_TOKEN", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"
+        "GITHUB_TOKEN", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENCLAW_MASTER_PHONE"
     ]
     health = {key: "missing" for key in essential_keys}
     try:
@@ -166,6 +166,7 @@ async def save_vault_keys(
     github_token: str = Form(None),
     anthropic_key: str = Form(None),
     openai_key: str = Form(None),
+    master_phone: str = Form(None),
     user: dict = Depends(get_current_user)
 ):
     if not user or not user.get("is_owner"):
@@ -180,5 +181,23 @@ async def save_vault_keys(
             await client.post(f"{VAULT_URL}/set", json={"key": "ANTHROPIC_API_KEY", "value": anthropic_key})
         if openai_key:
             await client.post(f"{VAULT_URL}/set", json={"key": "OPENAI_API_KEY", "value": openai_key})
+        if master_phone:
+            await client.post(f"{VAULT_URL}/set", json={"key": "OPENCLAW_MASTER_PHONE", "value": master_phone})
 
     return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+
+@app.post("/vault/save_single")
+async def save_single_vault_key(
+    request: Request,
+    key_name: str = Form(...),
+    key_value: str = Form(...),
+    user: dict = Depends(get_current_user)
+):
+    if not user or not user.get("is_owner"):
+        return JSONResponse({"error": "unauthorized"}, status_code=status.HTTP_403_FORBIDDEN)
+    
+    if key_name and key_value:
+        async with httpx.AsyncClient() as client:
+            await client.post(f"{VAULT_URL}/set", json={"key": key_name, "value": key_value})
+            
+    return RedirectResponse(url="/#sect-vault", status_code=status.HTTP_303_SEE_OTHER)

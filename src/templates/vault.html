@@ -23,7 +23,7 @@
             </thead>
             <tbody>
                 {% for key, status in vault.items() %}
-                <tr style="border-bottom: 1px solid #ffffff05; transition: 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                <tr style="border-bottom: 1px solid #ffffff05; transition: 0.2s; cursor: pointer;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'" onclick="openVaultModal('{{ key }}')">
                     <td style="padding: 15px 20px;">
                         <code style="background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 6px; color: {% if key in ['GROQ_API_KEY', 'BIFROST_API_KEY', 'DATABASE_URL'] %}var(--primary-light){% else %}var(--text-bright){% endif %}; font-family: 'JetBrains Mono', 'Courier New', monospace;">
                             {{ key }}
@@ -37,6 +37,7 @@
                         {% elif key == 'GITHUB_TOKEN' %}OpenClaw Agent Auth (Codebase/Git)
                         {% elif key == 'ANTHROPIC_API_KEY' %}OpenClaw Logic Core (Claude 3.5 Sonnet)
                         {% elif key == 'OPENAI_API_KEY' %}OpenClaw Embedding & Fallback (GPT-4)
+                        {% elif key == 'OPENCLAW_MASTER_PHONE' %}WhatsApp Bot Number Control (Segurança)
                         {% else %}Configuração de Módulo Injetada{% endif %}
                     </td>
                     <td style="padding: 15px 20px; text-align: center;">

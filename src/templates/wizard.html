@@ -236,6 +236,18 @@
                         <p style="font-size: 0.7rem; color: var(--text-dim); margin-bottom: 10px;">Usado para embeddings, ou fallback caso o Claude falhe.</p>
                         <input type="password" name="openai_key" class="input-field" placeholder="sk-proj-...">
                     </div>
+
+                    <!-- OpenClaw WhatsApp Number -->
+                    <div class="glass-card" style="padding: 20px; border-left: 4px solid #22c55e; margin-top: 15px;">
+                        <label class="input-label" style="display: flex; justify-content: space-between;">
+                            OPENCLAW_MASTER_PHONE (Segurança do Agente)
+                            <span style="font-size: 0.7rem; color: {% if vault.OPENCLAW_MASTER_PHONE == 'ready' %}var(--primary){% else %}var(--text-dim){% endif %};">
+                                {{ (vault.OPENCLAW_MASTER_PHONE or 'missing')|upper }}
+                            </span>
+                        </label>
+                        <p style="font-size: 0.7rem; color: var(--text-dim); margin-bottom: 10px;">Número do Admin. O bot ignorará comandos de WhatsApp originados de outros números.</p>
+                        <input type="text" name="master_phone" class="input-field" placeholder="5511999999999">
+                    </div>
                 </div>
 
                 <div class="glass-card" style="margin-top: 20px; padding: 15px; background: rgba(var(--primary-rgb), 0.05); border: 1px solid rgba(var(--primary-rgb), 0.1);">
