@@ -165,7 +165,7 @@ async def wizard_page(request: Request, mode: str = "persona", target: str = "se
     if not user: return RedirectResponse(url="/")
     return templates.TemplateResponse(request=request, name="wizard.html", context={"user": user, "mode": mode, "target": target})
 
-OPENCLAW_CONFIG_PATH = os.getenv("OPENCLAW_CONFIG_PATH", "/openclaw-config/openclaw.json")
+OPENCLAW_CONFIG_PATH = os.getenv("OPENCLAW_CONFIG_PATH", "/openclaw-data/openclaw.json")
 
 OPENCLAW_PROVIDERS = {
     "openai":    {"name": "OpenAI",    "baseUrl": "https://api.openai.com/v1",    "models": ["gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini", "o4-mini"]},
