@@ -233,6 +233,9 @@ def _write_openclaw_config(provider: str, api_key: str, model: str):
   }},
 
   agents: {{
+    main: {{
+      model: "{provider}/{model}",
+    }},
     defaults: {{
       model: "{provider}/{model}",
     }},
