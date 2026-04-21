@@ -159,6 +159,11 @@ async def wizard_page(request: Request, mode: str = "persona", target: str = "se
     if not user: return RedirectResponse(url="/")
     return templates.TemplateResponse(request=request, name="wizard.html", context={"user": user, "mode": mode, "target": target})
 
+@app.get("/openclaw-guide", response_class=HTMLResponse)
+async def openclaw_guide_page(request: Request, user: dict = Depends(get_current_user)):
+    if not user: return RedirectResponse(url="/")
+    return templates.TemplateResponse(request=request, name="openclaw_guide.html", context={})
+
 @app.post("/vault/save")
 async def save_vault_keys(
     request: Request,

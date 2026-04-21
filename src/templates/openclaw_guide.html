@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}OpenClaw Agent Setup{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: center; align-items: center; min-height: 80vh;">
+    <div class="glass-card" style="width: 100%; max-width: 650px; padding: 40px; text-align: center;">
+        <span class="section-label" style="color: #22c55e;">OPENCLAW INDEPENDENT AGENT</span>
+        <h2 style="margin-bottom: 20px;">Guia de Automação & WhatsApp</h2>
+        <p style="color: var(--text-dim); margin-bottom: 30px;">
+            O OpenClaw roda em um container completamente isolado do AslamSys. Toda a governança, regras de mensagem e escaneamento do WhatsApp são feitas diretamente no painel fornecido pelo próprio OpenClaw. Nós não intervimos nas variáveis internas dele.
+        </p>
+
+        <!-- Access OpenClaw Panel Button -->
+        <button type="button" class="btn btn-outline" style="border-color: #22c55e; color: #22c55e; width: 100%; margin-bottom: 30px; font-size: 1.1rem; padding: 15px;" onclick="window.open(window.location.protocol + '//' + window.location.hostname + ':18789', '_blank')">
+            <b>🌐 Acessar Portal do OpenClaw</b> <span style="font-size: 0.9em;">↗</span>
+        </button>
+
+        <h4 style="text-align: left; margin-bottom: 15px;">Como configurar:</h4>
+        <div style="padding: 20px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 12px; text-align: left; margin-bottom: 30px;">
+            <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">1</div>
+                <div>
+                    <strong style="display: block; margin-bottom: 5px;">Acesse a interface clicando no botão acima</strong>
+                    <span style="font-size: 0.85rem; color: var(--text-dim);">Ele te levará ao endereço padrão do agente (porta 18789). Lá você gerencia Webhooks e integrações nativas dele.</span>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">2</div>
+                <div>
+                    <strong style="display: block; margin-bottom: 5px;">Escaneamento Terminal / Logs</strong>
+                    <span style="font-size: 0.85rem; color: var(--text-dim);">Se o painel do OpenClaw exigir o QR via terminal para pareamento Nativo Baileys, conecte-se ao seu servidor via SSH:</span>
+                    <code style="display: block; background: rgba(0,0,0,0.3); padding: 10px; margin-top: 10px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">docker logs -f mordomo-openclaw-agent</code>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 15px;">
+                <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">3</div>
+                <div>
+                    <strong style="display: block; margin-bottom: 5px;">Operação Conjunta via NATS</strong>
+                    <span style="font-size: 0.85rem; color: var(--text-dim);">Quando finalizado, o OpenClaw estará 100% vivo. Todos os comandos processados por ele (ex. do WhatsApp) que demandarem uso do Mordomo, ele disparará um evento <code style="font-size: 0.8em; color: var(--text-bright);">mordomo.orchestrator.request</code> que nosso Cerebro processará para você!</span>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn" style="background: rgba(255,255,255,0.05); color: var(--text-bright); width: 100%; border: 1px solid rgba(255,255,255,0.1);" onclick="window.location.href='/#sect-vault'">
+            ⬅ Voltar ao Inventário Vault
+        </button>
+    </div>
+</div>
+{% endblock %}
