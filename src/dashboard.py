@@ -249,38 +249,46 @@ def _write_openclaw_config(provider: str, api_key: str, model: str):
         data_dir = os.path.dirname(OPENCLAW_CONFIG_PATH)
         agents_path = os.path.join(data_dir, "agents")
         if os.path.exists(agents_path):
+            import shutil
             shutil.rmtree(agents_path)
-            
-        # Clear workspace triggers
+
+        # Clear workspace triggers and modular identity files (2026 pattern)
         workspace_path = os.path.join(data_dir, "workspace")
         if os.path.exists(workspace_path):
-            for f in ["BOOTSTRAP.md", "HEARTBEAT.md", "PLAN.md", "TODO.md"]:
+            # List of all files that OpenClaw 2026 generates and uses for identity
+            for f in ["BOOTSTRAP.md", "HEARTBEAT.md", "PLAN.md", "TODO.md", 
+                      "SOUL.md", "IDENTITY.md", "AGENTS.md", "TOOLS.md", "USER.md"]:
                 fpath = os.path.join(workspace_path, f)
                 if os.path.exists(fpath):
                     os.remove(fpath)
 
-        # NEW: Inject Identity / Persona (instructions.md)
-        # This makes the agent "Zero-Touch" by pre-configuring its behavior.
-        agent_dir = os.path.join(data_dir, "agents", "main", "agent")
-        os.makedirs(agent_dir, exist_ok=True)
-        identity_path = os.path.join(agent_dir, "instructions.md")
+        # NEW 2026: Inject Identity into SOUL.md and BOOTSTRAP.md
+        os.makedirs(workspace_path, exist_ok=True)
         
-        identity_text = """# Identidade OpenClaw (AslamSys)
-Você é o **OpenClaw**, o agente de interface humano-sistema do ecossistema **AslamSys**, operando a partir de um **Orange Pi 5 Ultra**.
+        # 1. SOUL.md - The Core Personality
+        soul_path = os.path.join(workspace_path, "SOUL.md")
+        soul_text = """# OpenClaw SOUL (AslamSys)
+Você é o **OpenClaw**, a interface neural humano-máquina do ecossistema **AslamSys**, rodando em um **Orange Pi 5 Ultra**.
 
-## Suas Diretrizes:
-1. **Idioma:** Responda SEMPRE em **Português do Brasil**, de forma executiva, sofisticada e extremamente prestativa.
-2. **Contexto:** Você é a face visível de uma infraestrutura complexa chamada **Mordomo**.
-3. **Missão:** Atuar como o portal de entrada para comandos e dúvidas do usuário, integrando interfaces (Web, WhatsApp, Telegram) ao núcleo de processamento.
-4. **Tom de Voz:** Profissional, futurista e inteligente. Evite saudações genéricas excessivas; vá direto ao ponto com elegância.
+## Personalidade:
+- **Idioma:** Português do Brasil (sempre).
+- **Tom:** Executivo, sofisticado e preciso.
+- **Função:** Atuar como o portal para o Mordomo Orchestrator. 
+- **Vibe:** Você é parte de uma infraestrutura de IA de ponta.
 
 ---
-*Configurado automaticamente via Mordomo People Hub.*
+*Configurado via Mordomo People Hub.*
 """
-        with open(identity_path, "w", encoding="utf-8") as f:
-            f.write(identity_text)
+        with open(soul_path, "w", encoding="utf-8") as f:
+            f.write(soul_text)
+
+        # 2. BOOTSTRAP.md - Marks as completed
+        bootstrap_path = os.path.join(workspace_path, "BOOTSTRAP.md")
+        bootstrap_text = "Bootstrap concluído com sucesso via Zero-Touch Deployment. Siga as instruções em SOUL.md."
+        with open(bootstrap_path, "w", encoding="utf-8") as f:
+            f.write(bootstrap_text)
                     
-        print(f"OpenClaw state wiped and identity injected at {data_dir}")
+        print(f"OpenClaw state wiped and 2026 Identity injected at {data_dir}")
     except Exception as e:
         logger.error(f"Failed to wipe agents directory: {e}")
 
