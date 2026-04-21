@@ -162,25 +162,30 @@ async function saveConfig(e) {
         let initialStartedAt = null;
         let initialRestartCount = null;
         let sawTransition = false;
+        let pollCount = 0;
         
         const poll = setInterval(async () => {
+            pollCount++;
             try {
                 const sr = await fetch('/openclaw-status');
                 const sd = await sr.json();
                 const msg = document.getElementById('restart-message');
+                console.log("OpenClaw Status:", sd);
 
                 if (initialStartedAt === null) {
                     initialStartedAt = sd.started_at;
                     initialRestartCount = sd.restart_count;
+                    console.log("Initial state captured:", initialStartedAt);
                 }
 
                 // If timestamp changed OR we saw it down/restarting, it's a transition
                 if (sd.started_at !== initialStartedAt || sd.status !== 'running' || sd.restarting) {
+                    if (!sawTransition) console.log("Transition detected!");
                     sawTransition = true;
                 }
 
                 if (sawTransition) {
-                    msg.textContent = 'Container em transição... Status: ' + sd.status;
+                    msg.textContent = 'Container em transição... Status: ' + sd.status + ' (' + pollCount + ')';
                 }
 
                 // Detect crash loop
@@ -195,7 +200,9 @@ async function saveConfig(e) {
                 }
 
                 // SUCCESS: Running and timestamp is NEW
-                if (sd.running && sd.started_at !== initialStartedAt) {
+                // Or if it's already running and we've been polling for a while (fail-safe)
+                if (sd.running && (sd.started_at !== initialStartedAt || (pollCount > 10 && sawTransition))) {
+                    console.log("Container is UP and NEW. Clearing poll.");
                     clearInterval(poll);
                     document.getElementById('restart-spinner').innerHTML = '<div style="font-size: 2.5rem;">✅</div>';
                     document.getElementById('restart-title').textContent = 'OpenClaw Operacional!';
@@ -207,6 +214,7 @@ async function saveConfig(e) {
                     btn.innerHTML = '💾 Salvar Configuração e Reiniciar Agente';
                 }
             } catch (e) {
+                console.error("Poll error:", e);
                 document.getElementById('restart-message').textContent = 'Conectando ao Docker Engine...';
             }
         }, 2000);
