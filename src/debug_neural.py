@@ -81,9 +81,13 @@ async def monitor_ws(websocket: WebSocket):
             await websocket.send_json({"topic": msg.subject, "payload": content})
         except: pass
 
-    sub = None
-    if client.is_connected:
-        sub = await client.subscribe("mordomo.>", cb=msg_handler)
+    # sub = None
+    # if client.is_connected:
+    #     try:
+    #         sub = await client.subscribe("mordomo.>", cb=msg_handler)
+    #         logger.info("DEBUG_WS: Subscribed to NATS mordomo.>")
+    #     except Exception as e:
+    #         logger.error(f"DEBUG_WS: NATS Sub error: {e}")
     
     try:
         while True:
