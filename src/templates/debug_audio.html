@@ -23,21 +23,24 @@
             color: var(--text-main);
             font-family: 'Fira Code', monospace;
             margin: 0;
-            height: 100vh;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
+            overflow-y: auto; /* ALLOW SCROLL */
         }
+
+        /* Custom Neon Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-color); }
+        ::-webkit-scrollbar-thumb { background: var(--term-border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--neon-green); }
 
         .monitor-env {
             display: flex;
             flex-direction: column;
-            height: 100%;
             padding: 20px;
             box-sizing: border-box;
-            overflow-y: auto;
-            padding-bottom: 180px; /* Space for the fixed action bar + bridge */
-            scrollbar-width: none;
+            padding-bottom: 200px; /* Large space for the action bar */
         }
 
         .terminal-grid {
