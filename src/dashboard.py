@@ -73,7 +73,8 @@ async def get_system_status(request: Request):
 
 async def get_vault_health():
     essential_keys = [
-        "GROQ_API_KEY", "BIFROST_API_KEY", "DATABASE_URL", "PEOPLE_MASTER_KEY"
+        "GROQ_API_KEY", "BIFROST_API_KEY", "DATABASE_URL", "PEOPLE_MASTER_KEY",
+        "OPENCLAW_GATEWAY_TOKEN"
     ]
     health = {key: "missing" for key in essential_keys}
     try:
@@ -93,7 +94,8 @@ async def seed_vault():
         {"key": "DATABASE_URL", "value": os.environ.get("DATABASE_URL")},
         {"key": "PEOPLE_MASTER_KEY", "value": os.environ.get("PEOPLE_MASTER_KEY")},
         {"key": "BIFROST_API_KEY", "value": "bt_" + secrets.token_urlsafe(24)},
-        {"key": "SESSION_SECRET", "value": secrets.token_urlsafe(24)}
+        {"key": "SESSION_SECRET", "value": secrets.token_urlsafe(24)},
+        {"key": "OPENCLAW_GATEWAY_TOKEN", "value": os.environ.get("OPENCLAW_GATEWAY_TOKEN")}
     ]
     existing_keys = {}
     async with httpx.AsyncClient() as client:
@@ -161,7 +163,15 @@ async def wizard_page(request: Request, mode: str = "persona", target: str = "se
 @app.get("/openclaw-guide", response_class=HTMLResponse)
 async def openclaw_guide_page(request: Request, user: dict = Depends(get_current_user)):
     if not user: return RedirectResponse(url="/")
-    return templates.TemplateResponse(request=request, name="openclaw_guide.html", context={})
+    token = "Não Gerado"
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(f"{VAULT_URL}/get_all", timeout=2.0)
+            if resp.status_code == 200:
+                token = resp.json().get("OPENCLAW_GATEWAY_TOKEN", "Não Gerado (Reinicie o Orchestrator)")
+    except:
+        pass
+    return templates.TemplateResponse(request=request, name="openclaw_guide.html", context={"token": token})
 
 @app.post("/vault/save")
 async def save_vault_keys(

@@ -12,9 +12,14 @@
         </p>
 
         <!-- Access OpenClaw Panel Button -->
-        <button type="button" class="btn btn-outline" style="border-color: #22c55e; color: #22c55e; width: 100%; margin-bottom: 30px; font-size: 1.1rem; padding: 15px;" onclick="window.open(window.location.protocol + '//' + window.location.hostname + ':18789', '_blank')">
+        <button type="button" class="btn btn-outline" style="border-color: #22c55e; color: #22c55e; width: 100%; margin-bottom: 15px; font-size: 1.1rem; padding: 15px;" onclick="window.open(window.location.protocol + '//' + window.location.hostname + ':18789', '_blank')">
             <b>🌐 Acessar Portal do OpenClaw</b> <span style="font-size: 0.9em;">↗</span>
         </button>
+
+        <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 15px; margin-bottom: 30px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <span style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Seu Gateway Token (Senha de Acesso)</span>
+            <code style="color: #22c55e; font-size: 1.3rem; font-weight: bold; background: transparent; padding: 0;">{{ token }}</code>
+        </div>
 
         <h4 style="text-align: left; margin-bottom: 15px;">Como configurar:</h4>
         <div style="padding: 20px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 12px; text-align: left; margin-bottom: 30px;">
