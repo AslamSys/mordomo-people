@@ -168,10 +168,10 @@ async def wizard_page(request: Request, mode: str = "persona", target: str = "se
 OPENCLAW_CONFIG_PATH = os.getenv("OPENCLAW_CONFIG_PATH", "/openclaw-data/openclaw.json")
 
 OPENCLAW_PROVIDERS = {
-    "openai":    {"name": "OpenAI",    "baseUrl": "https://api.openai.com/v1",    "models": ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "o1-preview", "o1-mini"]},
-    "anthropic": {"name": "Anthropic", "baseUrl": "https://api.anthropic.com",     "models": ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229"]},
-    "groq":      {"name": "Groq",      "baseUrl": "https://api.groq.com/openai/v1", "models": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"]},
-    "google":    {"name": "Google",    "baseUrl": "https://generativelanguage.googleapis.com/v1beta", "models": ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp", "gemini-2.0-flash-lite-preview-02-05"]},
+    "openai":    {"name": "OpenAI",    "baseUrl": "https://api.openai.com/v1",    "models": ["gpt-5", "gpt-5o", "gpt-4.5-preview", "o3-preview", "o3-mini"]},
+    "anthropic": {"name": "Anthropic", "baseUrl": "https://api.anthropic.com",     "models": ["claude-4-sonnet-20260215", "claude-4-opus-20260310", "claude-3.7-sonnet", "claude-3.5-sonnet-v2"]},
+    "groq":      {"name": "Groq",      "baseUrl": "https://api.groq.com/openai/v1", "models": ["llama-4-70b-versatile", "llama-3.3-70b", "mixtral-large-3", "gemma-3-27b"]},
+    "google":    {"name": "Google",    "baseUrl": "https://generativelanguage.googleapis.com/v1beta", "models": ["gemini-3.1-pro", "gemini-3.1-flash", "gemini-3.1-flash-lite", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite", "nano-banana-2", "nano-banana-pro"]},
 }
 
 def _read_openclaw_config():
