@@ -208,13 +208,13 @@ def _write_openclaw_config(provider: str, api_key: str, model: str):
 {{
   gateway: {{
     port: 18789,
-    bind: "lan",
+    bind: "auto",
     auth: {{
       mode: "token",
       token: "${{OPENCLAW_GATEWAY_TOKEN}}",
     }},
     controlUi: {{
-      allowedOrigins: ["*"],
+      allowedOrigins: ["*", "http://localhost:18789", "http://127.0.0.1:18789"],
       allowInsecureAuth: true,
       dangerouslyDisableDeviceAuth: true,
     }},
