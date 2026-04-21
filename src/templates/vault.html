@@ -74,11 +74,11 @@
         <div class="glass-card" style="padding: 25px; border-left: 4px solid #22c55e;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                    <h4 style="color: #22c55e;">OpenClaw: Autenticação WhatsApp</h4>
-                    <p style="font-size: 0.8rem; color: var(--text-dim); margin-top: 5px;">Parear o dispositivo do mordomo via QR Code ou Cód. Telefone para o agente RPA operá-lo.</p>
+                    <h4 style="color: #22c55e;">OpenClaw: Automação Independente</h4>
+                    <p style="font-size: 0.8rem; color: var(--text-dim); margin-top: 5px;">Acesse a interface nativa do OpenClaw para configurar Webhooks, WhatsApp e integrações. O AslamSys escutará as ordens do agente através do NATS.</p>
                 </div>
-                <button type="button" class="btn btn-outline" style="border-color: #22c55e; color: #22c55e;" onclick="window.location.href='/openclaw-wizard'">
-                    Iniciar Pareamento
+                <button type="button" class="btn btn-outline" style="border-color: #22c55e; color: #22c55e;" onclick="window.open(window.location.protocol + '//' + window.location.hostname + ':18789', '_blank')">
+                    Abrir Painel OpenClaw <span style="font-size: 0.8em;">↗</span>
                 </button>
             </div>
         </div>
