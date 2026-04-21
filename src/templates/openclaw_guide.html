@@ -49,6 +49,26 @@
             </div>
         </div>
 
+        <div style="padding: 20px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 12px; text-align: left; margin-bottom: 30px;">
+            <div style="display: flex; gap: 15px; margin-bottom: 10px;">
+                <div style="font-size: 1.5rem;">⚠️</div>
+                <div style="width: 100%;">
+                    <h4 style="color: #f59e0b; margin-bottom: 8px;">Erro: "Control UI requires device identity"</h4>
+                    <p style="font-size: 0.85rem; color: var(--text-dim); line-height: 1.4; margin-bottom: 10px;">
+                        Por segurança, o portal do OpenClaw utiliza criptografia avançada (<code style="color:#22c55e">crypto.subtle</code>) para parear o seu dispositivo. Navegadores bloqueiam essa função quando você acessa via IP de rede local (ex: <code style="color:#22c55e">http://...</code>) ao invés de <code style="color:#22c55e">localhost</code>.
+                    </p>
+                    <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px; font-size: 0.85rem; color: #fff;">
+                        <b>Para resolver em 1 minuto:</b><br><br>
+                        1. Digite na barra de endereços do seu Chrome/Edge: <code style="color:#60a5fa">chrome://flags/#unsafely-treat-insecure-origin-as-secure</code> (ou <code style="color:#60a5fa">edge://flags...</code>)<br>
+                        2. No campo de texto que irá piscar, cole a sua URL: <code style="color:#60a5fa">http://{{ request.url.hostname }}:18789</code><br>
+                        3. Altere o seletor à direita de "Default" para <b>Enabled</b>.<br>
+                        4. Clique no botão <b>Relaunch</b> (Reiniciar) que aparecerá no fundo da tela.<br><br>
+                        Pronto! O navegador entenderá que a sua rede local é segura e o token passará sem problemas.
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <button class="btn" style="background: rgba(255,255,255,0.05); color: var(--text-bright); width: 100%; border: 1px solid rgba(255,255,255,0.1);" onclick="window.location.href='/#sect-vault'">
             ⬅ Voltar ao Inventário Vault
         </button>
