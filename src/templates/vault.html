@@ -34,6 +34,9 @@
                         {% elif key == 'BIFROST_API_KEY' %}Gateway Master Pass (Inter-service Auth)
                         {% elif key == 'DATABASE_URL' %}PostgreSQL Master Connection (Persistence Layer)
                         {% elif key == 'PEOPLE_MASTER_KEY' %}AES-256 System Encryption Master Key
+                        {% elif key == 'GITHUB_TOKEN' %}OpenClaw Agent Auth (Codebase/Git)
+                        {% elif key == 'ANTHROPIC_API_KEY' %}OpenClaw Logic Core (Claude 3.5 Sonnet)
+                        {% elif key == 'OPENAI_API_KEY' %}OpenClaw Embedding & Fallback (GPT-4)
                         {% else %}Configuração de Módulo Injetada{% endif %}
                     </td>
                     <td style="padding: 15px 20px; text-align: center;">

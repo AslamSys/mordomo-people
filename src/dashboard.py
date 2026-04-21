@@ -72,7 +72,10 @@ async def get_system_status(request: Request):
     }
 
 async def get_vault_health():
-    essential_keys = ["GROQ_API_KEY", "BIFROST_API_KEY", "DATABASE_URL", "PEOPLE_MASTER_KEY"]
+    essential_keys = [
+        "GROQ_API_KEY", "BIFROST_API_KEY", "DATABASE_URL", "PEOPLE_MASTER_KEY",
+        "GITHUB_TOKEN", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"
+    ]
     health = {key: "missing" for key in essential_keys}
     try:
         async with httpx.AsyncClient() as client:
@@ -91,7 +94,10 @@ async def seed_vault():
         {"key": "DATABASE_URL", "value": os.environ.get("DATABASE_URL")},
         {"key": "PEOPLE_MASTER_KEY", "value": os.environ.get("PEOPLE_MASTER_KEY")},
         {"key": "BIFROST_API_KEY", "value": "bt_" + secrets.token_urlsafe(24)},
-        {"key": "SESSION_SECRET", "value": secrets.token_urlsafe(24)}
+        {"key": "SESSION_SECRET", "value": secrets.token_urlsafe(24)},
+        {"key": "GITHUB_TOKEN", "value": os.environ.get("GITHUB_TOKEN")},
+        {"key": "ANTHROPIC_API_KEY", "value": os.environ.get("ANTHROPIC_API_KEY")},
+        {"key": "OPENAI_API_KEY", "value": os.environ.get("OPENAI_API_KEY")}
     ]
     existing_keys = {}
     async with httpx.AsyncClient() as client:
