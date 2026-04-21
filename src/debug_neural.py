@@ -2,10 +2,10 @@
 Debug Neural Pipeline — WebSocket bridge + pipeline monitor.
 
 Audio injection path (canonical):
-  Browser mic → WebSocket bytes → 30 ms chunks → ZMQ PUB (audio.raw)
-      → [VAD]  ← already subscribed
-      → [Wake Word detector] ← already subscribed
-      → [Whisper ASR] ← already subscribed
+  Browser mic → WebSocket bytes → 30 ms chunks → ZMQ PUSH (tcp://audio-capture-vad:5556)
+      → [VAD PULL] applies VAD+AGC → republishes via ZMQ PUB (5555)
+      → [Wake Word] ← subscribed to 5555
+      → [Whisper ASR] ← subscribed to 5555
 
 NATS is used only for control commands and telemetry.
 """
@@ -28,15 +28,14 @@ templates = Jinja2Templates(directory="src/templates")
 # Shared NATS client
 _nc = NATS()
 
-# ZMQ constants
-ZMQ_VAD_URL = os.getenv("ZMQ_VAD_URL", "tcp://audio-capture-vad:5555")
-ZMQ_TOPIC   = os.getenv("ZMQ_TOPIC", "audio.raw").encode()
+# ZMQ constants — PUSH to VAD's PULL socket (port 5556)
+ZMQ_VAD_URL = os.getenv("ZMQ_VAD_URL", "tcp://mordomo-audio-capture-vad:5556")
 
 # PCM frame constants (must match VAD config)
 # 16 kHz · 16-bit · mono · 30 ms = 960 bytes per frame
 SAMPLE_RATE    = 16_000
-FRAME_DURATION = 30                          # ms
-FRAME_BYTES    = SAMPLE_RATE * FRAME_DURATION // 1000 * 2   # 960
+FRAME_DURATION = 30                                       # ms
+FRAME_BYTES    = SAMPLE_RATE * FRAME_DURATION // 1000 * 2  # 960 bytes
 
 
 async def get_nc() -> NATS:
@@ -62,36 +61,39 @@ async def monitor_ws(websocket: WebSocket):
     client = await get_nc()
     sub = None
 
-    # ── ZeroMQ PUB socket — injects frames directly into the VAD bus ──────────
+    # ── ZeroMQ PUSH socket — sends frames to VAD's PULL socket ────────────
     zmq_ctx  = azmq.Context.instance()
-    zmq_sock = zmq_ctx.socket(zmq.PUB)
+    zmq_sock = zmq_ctx.socket(zmq.PUSH)
     zmq_ok   = False
     try:
         zmq_sock.connect(ZMQ_VAD_URL)
-        # ZMQ slow-joiner: give subscribers a moment before first publish
-        await asyncio.sleep(0.05)
+        # Give ZMQ time to establish the connection
+        await asyncio.sleep(0.1)
         zmq_ok = True
-        logger.info(f"DEBUG_WS: ZMQ PUB connected → {ZMQ_VAD_URL}")
+        logger.info(f"DEBUG_WS: ZMQ PUSH connected → {ZMQ_VAD_URL}")
     except Exception as e:
-        logger.error(f"DEBUG_WS: ZMQ connect failed: {e}")
+        logger.error(f"DEBUG_WS: ZMQ PUSH connect failed: {e}")
 
     _pcm_buf = bytearray()
 
     async def _inject(raw: bytes):
-        """Buffer raw PCM, flush in strict 30 ms frames via ZMQ multipart."""
+        """Buffer raw PCM, flush in strict 30 ms frames via ZMQ PUSH."""
         if not zmq_ok:
             return
         _pcm_buf.extend(raw)
+        pushed = 0
         while len(_pcm_buf) >= FRAME_BYTES:
             frame = bytes(_pcm_buf[:FRAME_BYTES])
             del _pcm_buf[:FRAME_BYTES]
             try:
-                # Multipart: [topic_bytes, pcm_bytes] — matches publisher.py format
-                await zmq_sock.send_multipart([ZMQ_TOPIC, frame])
+                await zmq_sock.send(frame)
+                pushed += 1
             except Exception as e:
-                logger.warning(f"DEBUG_WS: ZMQ send error: {e}")
+                logger.warning(f"DEBUG_WS: ZMQ PUSH send error: {e}")
+        if pushed:
+            logger.debug(f"DEBUG_WS: Pushed {pushed} frames to VAD")
 
-    # ── NATS telemetry subscription ───────────────────────────────────────────
+    # ── NATS telemetry subscription ───────────────────────────────────────
     async def _nats_handler(msg):
         try:
             subject = msg.subject
@@ -118,7 +120,7 @@ async def monitor_ws(websocket: WebSocket):
         except Exception as e:
             logger.error(f"DEBUG_WS: NATS subscription failed: {e}")
 
-    # ── Main receive loop ─────────────────────────────────────────────────────
+    # ── Main receive loop ─────────────────────────────────────────────────
     try:
         while True:
             data = await websocket.receive()
@@ -141,7 +143,7 @@ async def monitor_ws(websocket: WebSocket):
                         )
 
             elif "bytes" in data:
-                # ── CANONICAL PATH: PC mic → ZMQ VAD bus ─────────────────
+                # ── CANONICAL PATH: PC mic → ZMQ PUSH → VAD PULL → PUB → consumers ──
                 await _inject(data["bytes"])
 
     except WebSocketDisconnect:
