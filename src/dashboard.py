@@ -251,16 +251,36 @@ def _write_openclaw_config(provider: str, api_key: str, model: str):
         if os.path.exists(agents_path):
             shutil.rmtree(agents_path)
             
-        # Also clean workspace instruction files (BOOTSTRAP, HEARTBEAT, etc) 
-        # to ensure the agent doesn't get stuck in "bootstrap mode"
+        # Clear workspace triggers
         workspace_path = os.path.join(data_dir, "workspace")
         if os.path.exists(workspace_path):
             for f in ["BOOTSTRAP.md", "HEARTBEAT.md", "PLAN.md", "TODO.md"]:
                 fpath = os.path.join(workspace_path, f)
                 if os.path.exists(fpath):
                     os.remove(fpath)
+
+        # NEW: Inject Identity / Persona (instructions.md)
+        # This makes the agent "Zero-Touch" by pre-configuring its behavior.
+        agent_dir = os.path.join(data_dir, "agents", "main", "agent")
+        os.makedirs(agent_dir, exist_ok=True)
+        identity_path = os.path.join(agent_dir, "instructions.md")
+        
+        identity_text = """# Identidade OpenClaw (AslamSys)
+Você é o **OpenClaw**, o agente de interface humano-sistema do ecossistema **AslamSys**, operando a partir de um **Orange Pi 5 Ultra**.
+
+## Suas Diretrizes:
+1. **Idioma:** Responda SEMPRE em **Português do Brasil**, de forma executiva, sofisticada e extremamente prestativa.
+2. **Contexto:** Você é a face visível de uma infraestrutura complexa chamada **Mordomo**.
+3. **Missão:** Atuar como o portal de entrada para comandos e dúvidas do usuário, integrando interfaces (Web, WhatsApp, Telegram) ao núcleo de processamento.
+4. **Tom de Voz:** Profissional, futurista e inteligente. Evite saudações genéricas excessivas; vá direto ao ponto com elegância.
+
+---
+*Configurado automaticamente via Mordomo People Hub.*
+"""
+        with open(identity_path, "w", encoding="utf-8") as f:
+            f.write(identity_text)
                     
-        print(f"OpenClaw state wiped at {data_dir}")
+        print(f"OpenClaw state wiped and identity injected at {data_dir}")
     except Exception as e:
         logger.error(f"Failed to wipe agents directory: {e}")
 
