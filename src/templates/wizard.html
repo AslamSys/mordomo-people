@@ -141,6 +141,9 @@
                 <span class="section-label">PASSO 03 • NEURAL BIO</span>
                 <h2 style="margin-bottom: 20px;">Biometria Vocal</h2>
                 <p style="color: var(--text-dim); margin-bottom: 30px;">Grave sua "assinatura neural" para que o Aslam te reconheça pelo microfone local.</p>
+                <div style="padding: 15px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; margin-bottom: 20px; font-size: 0.85rem;">
+                    <b style="color: #60a5fa;">Dica de Redes Locais:</b> Se o seu navegador bloquear o microfone na rede Wi-Fi, abra a aba secreta <code>chrome://flags/#unsafely-treat-insecure-origin-as-secure</code>, cole  <code style="color:#60a5fa">http://{{ request.url.hostname }}:8000,http://{{ request.url.hostname }}:18789</code> e ative.
+                </div>
                 
                 <div class="glass-card" style="text-align: center; padding: 40px; border: 1px dashed var(--border);">
                     <img src="/static/voice_bio.png" style="width: 120px; margin-bottom: 20px; opacity: 0.8;" alt="Voice Pattern">

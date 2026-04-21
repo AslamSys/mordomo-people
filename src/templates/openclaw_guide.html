@@ -60,7 +60,8 @@
                     <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px; font-size: 0.85rem; color: #fff;">
                         <b>Para resolver em 1 minuto:</b><br><br>
                         1. Digite na barra de endereços do seu Chrome/Edge: <code style="color:#60a5fa">chrome://flags/#unsafely-treat-insecure-origin-as-secure</code> (ou <code style="color:#60a5fa">edge://flags...</code>)<br>
-                        2. No campo de texto que irá piscar, cole a sua URL: <code style="color:#60a5fa">http://{{ request.url.hostname }}:18789</code><br>
+                        2. No campo de texto que irá piscar, cole as duas URLs divididas por vírgula para liberar o Áudio do Aslam e o OpenClaw juntos:<br>
+                        <code style="color:#60a5fa">http://{{ request.url.hostname }}:8000,http://{{ request.url.hostname }}:18789</code><br>
                         3. Altere o seletor à direita de "Default" para <b>Enabled</b>.<br>
                         4. Clique no botão <b>Relaunch</b> (Reiniciar) que aparecerá no fundo da tela.<br><br>
                         Pronto! O navegador entenderá que a sua rede local é segura e o token passará sem problemas.
