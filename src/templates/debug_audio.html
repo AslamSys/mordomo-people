@@ -302,11 +302,12 @@
 </div>
 
 <div class="action-bar">
-    <button class="mic-trigger" id="talk-btn" title="Simulate from Browser"><i class="fas fa-microphone"></i></button>
-    <button class="mic-trigger" id="hw-monitor-btn" title="Monitor Orange Pi Mic"><i class="fas fa-microchip"></i></button>
-    <div id="mic-status" style="font-size: 0.75rem; color: var(--text-dim); width: 160px; font-weight: bold;">[OS_IDLE]</div>
-    <input type="text" id="sim-text" class="sim-input" placeholder="root@mordomo:~# simulate --text 'command here'">
-    <button onclick="simulate()" class="btn-send">INJECT_CMD</button>
+    <button class="mic-trigger" id="power-btn" title="Toggle Hardware Microphone"><i class="fas fa-power-off"></i></button>
+    <div id="mic-status" style="font-size: 0.75rem; color: var(--text-dim); width: 220px; font-weight: bold;">[SYSTEM_STANDBY]</div>
+    <div class="sim-input-container" style="flex: 1; display: flex; gap: 10px;">
+        <input type="text" id="sim-text" class="sim-input" placeholder="root@mordomo:~# inject signal --payload 'text here'">
+        <button onclick="simulate()" class="btn-send">SEND_SIGNAL</button>
+    </div>
 </div>
 
 <script>
@@ -316,6 +317,7 @@
     }, 1000);
 
     const ws = new WebSocket(`ws://${window.location.host}/debug-neural/ws`);
+    let isMicOpen = false;
 
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
@@ -326,7 +328,6 @@
         const body = document.getElementById('body-' + id);
         const term = document.getElementById('term-' + id);
         
-        // Auto-log to Global Bridge
         if (!isBridge) {
             const bridgeBody = document.getElementById('body-bridge');
             const bridgeLine = document.createElement('div');
@@ -338,17 +339,14 @@
         }
 
         if (!body) return;
-
         const line = document.createElement('div');
         line.className = 'term-line';
         const ts = new Date().toLocaleTimeString('pt-BR', { hour12: false });
         line.innerHTML = `<span class="term-timestamp">${ts}</span> ${msg}`;
-        
         body.appendChild(line);
         if (body.childNodes.length > 50) body.removeChild(body.firstChild);
         body.scrollTop = body.scrollHeight;
 
-        // Visual Flash
         if (term) {
             term.classList.remove('active-flash');
             void term.offsetWidth; 
@@ -357,26 +355,51 @@
     }
 
     function processSignal(topic, payload) {
-        // Log raw topic to Bridge for debugging
         const rawMsg = typeof payload === 'object' ? JSON.stringify(payload) : payload;
         
+        // Handle Hardware VAD Energy
         if (topic.includes('audio.vad.energy')) {
             const fill = document.getElementById('vad-fill');
-            const percent = Math.min((payload.energy / 5000) * 100, 100);
+            const meter = document.getElementById('vad-meter');
+            const status = document.getElementById('mic-status');
+            
+            if (meter) meter.style.display = 'block';
             if (fill) {
+                const percent = Math.min((payload.energy / 5000) * 100, 100);
                 fill.style.width = percent + '%';
                 fill.style.background = payload.is_speech ? '#ff5f56' : '#00ff41';
             }
+            
             if (payload.is_speech) {
-                addTermLine('vad', `>> SPEECH_DETECTED [RMS: ${payload.energy}]`);
+                addTermLine('vad', `>> SIGNAL: ENERGY_PEAK[${payload.energy}]`);
             }
-            return; // Energy is too noisy for bridge
+            return;
         }
 
-        if (topic.includes('audio.stream')) {
-            addTermLine('vad', `>> BYTES_RCV: [${payload.length || 'RAW'}]`);
-        } else if (topic.includes('wake_word.detected')) {
-            addTermLine('wake', `>> DETECTED: [${payload.keyword}] CONF=${payload.confidence}`);
+        // Handle Mic State Feedback
+        if (topic.includes('audio.capture.state')) {
+            isMicOpen = payload.enabled;
+            const btn = document.getElementById('power-btn');
+            const status = document.getElementById('mic-status');
+            
+            if (isMicOpen) {
+                btn.style.color = 'var(--neon-green)';
+                btn.style.borderColor = 'var(--neon-green)';
+                btn.style.boxShadow = '0 0 15px var(--neon-green)';
+                status.innerText = '[HARDWARE_MIC_ACTIVE]';
+                status.style.color = 'var(--neon-green)';
+            } else {
+                btn.style.color = '';
+                btn.style.borderColor = '';
+                btn.style.boxShadow = '';
+                status.innerText = '[HARDWARE_MIC_STANDBY]';
+                status.style.color = '';
+                document.getElementById('vad-fill').style.width = '0%';
+            }
+        }
+
+        if (topic.includes('wake_word.detected')) {
+            addTermLine('wake', `★★ DETECTED: [${payload.keyword}] CONF=${payload.confidence}`);
         } else if (topic.includes('speaker.verified')) {
             addTermLine('bio', `>> VERIFIED_USER: [${payload.speaker_id}]`);
         } else if (topic.includes('speech.transcribed')) {
@@ -398,80 +421,25 @@
         }
     }
 
+    const powerBtn = document.getElementById('power-btn');
+    powerBtn.onclick = () => {
+        const cmd = isMicOpen ? "close" : "open";
+        ws.send(JSON.stringify({
+            topic: `mordomo.audio.capture.${cmd}`,
+            payload: { timestamp: Date.now() }
+        }));
+        addTermLine('bridge', `>> SEND_COMMAND: [MIC_${cmd.toUpperCase()}]`);
+    };
+
     async function simulate() {
         const text = document.getElementById('sim-text').value;
         if (!text) return;
-        ws.send("simulate:" + text);
+        ws.send(JSON.stringify({
+            topic: "mordomo.debug.simulate",
+            payload: { text: text }
+        }));
         document.getElementById('sim-text').value = '';
     }
-
-    // RAW PCM RECORDING
-    let audioContext, processor, input, isRecording = false;
-    const talkBtn = document.getElementById('talk-btn');
-    const micStatus = document.getElementById('mic-status');
-
-    talkBtn.onclick = async () => {
-        if (!isRecording) {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-                input = audioContext.createMediaStreamSource(stream);
-                const pcmBuffer = [];
-                processor = audioContext.createScriptProcessor(4096, 1, 1);
-                
-                processor.onaudioprocess = (e) => {
-                    const inputData = e.inputBuffer.getChannelData(0);
-                    const pcm16 = new Int16Array(inputData.length);
-                    for (let i = 0; i < inputData.length; i++) {
-                        pcm16[i] = Math.max(-1, Math.min(1, inputData[i])) * 0x7FFF;
-                    }
-                    pcmBuffer.push(...pcm16);
-                };
-
-                input.connect(processor);
-                processor.connect(audioContext.destination);
-                isRecording = true;
-                talkBtn.classList.add('recording');
-                micStatus.innerText = '[OS_RECORDING]';
-                addTermLine('vad', '>> MIC_OPEN: Capturing PCM 16kHz...');
-                window._currentBuffer = pcmBuffer;
-            } catch (err) { console.error(err); }
-        } else {
-            processor.disconnect(); input.disconnect(); audioContext.close();
-            const pcmData = new Int16Array(window._currentBuffer);
-            const blob = new Blob([pcmData.buffer], { type: 'application/octet-stream' });
-            const formData = new FormData();
-            formData.append('file', blob, 'cmd.raw');
-            
-            addTermLine('vad', '>> FLUSHING_BUFFER: Transferring to kernel...');
-            
-            fetch('/debug-neural/upload-audio', { method: 'POST', body: formData })
-                .then(r => r.json())
-                .then(d => addTermLine('vad', `>> UPLOAD_SUCCESS: ${d.bytes} bytes processed.`));
-
-            isRecording = false;
-            talkBtn.classList.remove('recording');
-            micStatus.innerText = '[OS_IDLE]';
-        }
-    // Hardware Monitor Trigger
-    const hwBtn = document.getElementById('hw-monitor-btn');
-    const vadMeter = document.getElementById('vad-meter');
-    let isHwMonitoring = false;
-
-    hwBtn.onclick = () => {
-        isHwMonitoring = !isHwMonitoring;
-        if (isHwMonitoring) {
-            hwBtn.classList.add('recording');
-            vadMeter.style.display = 'block';
-            micStatus.innerText = '[OS_MONITORING_HW]';
-            addTermLine('vad', '>> HW_MONITOR_ON: Listening to Orange Pi energy levels...');
-        } else {
-            hwBtn.classList.remove('recording');
-            vadMeter.style.display = 'none';
-            micStatus.innerText = '[OS_IDLE]';
-            addTermLine('vad', '>> HW_MONITOR_OFF');
-        }
-    };
 </script>
 </body>
 </html>

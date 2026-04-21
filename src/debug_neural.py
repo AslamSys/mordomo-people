@@ -88,10 +88,34 @@ async def monitor_ws(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive()
-            if "text" in data and data["text"].startswith("simulate:"):
-                cmd = data["text"].replace("simulate:", "")
-                if client.is_connected:
-                    await client.publish("mordomo.orchestrator.request", json.dumps({"text": cmd, "user_id": "debug"}).encode())
+            if "text" in data:
+                text = data["text"]
+                
+                # Check if it is JSON (New standard)
+                try:
+                    msg = json.loads(text)
+                    if "topic" in msg and client.is_connected:
+                        payload = msg.get("payload", {})
+                        # If simulating from input, map to orchestrator
+                        if msg["topic"] == "mordomo.debug.simulate":
+                            await client.publish("mordomo.orchestrator.request", json.dumps({
+                                "text": payload.get("text", ""),
+                                "user_id": "debug",
+                                "source": "monitor"
+                            }).encode())
+                        else:
+                            # Forward direct hardware commands (open/close mic)
+                            await client.publish(msg["topic"], json.dumps(payload).encode())
+                    continue
+                except:
+                    pass
+
+                # Legacy String Parser (Fallback)
+                if text.startswith("simulate:"):
+                    cmd = text.replace("simulate:", "")
+                    if client.is_connected:
+                        await client.publish("mordomo.orchestrator.request", json.dumps({"text": cmd, "user_id": "debug"}).encode())
+            
             elif "bytes" in data and client.is_connected:
                 await client.publish("mordomo.audio.stream", data["bytes"])
     except WebSocketDisconnect:
