@@ -241,6 +241,17 @@ def _write_openclaw_config(provider: str, api_key: str, model: str):
 """
     with open(OPENCLAW_CONFIG_PATH, "w") as f:
         f.write(config)
+    
+    # NEW: Wipe the 'agents' directory to force OpenClaw to recreate the default agent 
+    # using the NEW global provider/model settings. This prevents "No API key found for openai" errors.
+    try:
+        import shutil
+        agents_path = os.path.join(os.path.dirname(OPENCLAW_CONFIG_PATH), "agents")
+        if os.path.exists(agents_path):
+            shutil.rmtree(agents_path)
+            logger.info(f"Wiped OpenClaw agents directory at {agents_path}")
+    except Exception as e:
+        logger.error(f"Failed to wipe agents directory: {e}")
 
 async def _restart_openclaw_container():
     """Restart the OpenClaw container via Docker Engine API over Unix socket."""

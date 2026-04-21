@@ -158,52 +158,56 @@ async function saveConfig(e) {
         overlay.style.display = 'block';
         btn.innerHTML = '✓ Configuração Salva';
 
-        // Poll for real container status
+        // Poll for real container status using timestamp transition
+        let initialStartedAt = null;
         let initialRestartCount = null;
-        let sawRestarting = false;
+        let sawTransition = false;
+        
         const poll = setInterval(async () => {
             try {
                 const sr = await fetch('/openclaw-status');
                 const sd = await sr.json();
                 const msg = document.getElementById('restart-message');
 
-                // Track restart cycle
-                if (initialRestartCount === null) initialRestartCount = sd.restart_count;
-                if (sd.restarting || sd.status === 'restarting') {
-                    sawRestarting = true;
-                    msg.textContent = 'Container reiniciando... Status: ' + sd.status;
+                if (initialStartedAt === null) {
+                    initialStartedAt = sd.started_at;
+                    initialRestartCount = sd.restart_count;
                 }
 
-                // Detect crash loop (restarted too many times)
-                if (sd.restart_count > initialRestartCount + 3) {
+                // If timestamp changed OR we saw it down/restarting, it's a transition
+                if (sd.started_at !== initialStartedAt || sd.status !== 'running' || sd.restarting) {
+                    sawTransition = true;
+                }
+
+                if (sawTransition) {
+                    msg.textContent = 'Container em transição... Status: ' + sd.status;
+                }
+
+                // Detect crash loop
+                if (sd.restart_count > initialRestartCount + 2) {
                     clearInterval(poll);
                     document.getElementById('restart-spinner').innerHTML = '<div style="font-size: 2.5rem;">❌</div>';
                     document.getElementById('restart-title').textContent = 'Erro na Configuração';
-                    document.getElementById('restart-title').style.color = '#ef4444';
-                    msg.textContent = 'OpenClaw está em crash loop. Verifique a API key e tente novamente.';
+                    msg.textContent = 'O container não conseguiu subir. Verifique se a API Key é válida.';
                     btn.disabled = false;
-                    btn.innerHTML = '💾 Salvar Configuração e Reiniciar Agente';
+                    btn.innerHTML = '💾 Salvar e Tentar Novamente';
                     return;
                 }
 
-                // Container is running after we saw it restarting = success
-                if (sd.running && sawRestarting) {
+                // SUCCESS: Running and timestamp is NEW
+                if (sd.running && sd.started_at !== initialStartedAt) {
                     clearInterval(poll);
                     document.getElementById('restart-spinner').innerHTML = '<div style="font-size: 2.5rem;">✅</div>';
                     document.getElementById('restart-title').textContent = 'OpenClaw Operacional!';
                     document.getElementById('restart-title').style.color = '#22c55e';
-                    msg.textContent = 'Agente online com a nova configuração. Status: ' + sd.status;
+                    msg.textContent = 'O Agente foi resetado e configurado com sucesso.';
                     document.getElementById('portal-btn').style.opacity = '1';
                     document.getElementById('portal-btn').style.pointerEvents = 'auto';
                     btn.disabled = false;
-                }
-
-                // Update live status text
-                if (!sd.running && !sawRestarting) {
-                    msg.textContent = 'Enviando sinal de restart... Status: ' + sd.status;
+                    btn.innerHTML = '💾 Salvar Configuração e Reiniciar Agente';
                 }
             } catch (e) {
-                document.getElementById('restart-message').textContent = 'Aguardando resposta do servidor...';
+                document.getElementById('restart-message').textContent = 'Conectando ao Docker Engine...';
             }
         }, 2000);
     } catch (err) {
