@@ -158,25 +158,53 @@ async function saveConfig(e) {
         overlay.style.display = 'block';
         btn.innerHTML = '✓ Configuração Salva';
 
-        // Poll for container status
-        let attempts = 0;
+        // Poll for real container status
+        let initialRestartCount = null;
+        let sawRestarting = false;
         const poll = setInterval(async () => {
-            attempts++;
             try {
                 const sr = await fetch('/openclaw-status');
                 const sd = await sr.json();
-                if (sd.status === 'running' && attempts > 3) {
+                const msg = document.getElementById('restart-message');
+
+                // Track restart cycle
+                if (initialRestartCount === null) initialRestartCount = sd.restart_count;
+                if (sd.restarting || sd.status === 'restarting') {
+                    sawRestarting = true;
+                    msg.textContent = 'Container reiniciando... Status: ' + sd.status;
+                }
+
+                // Detect crash loop (restarted too many times)
+                if (sd.restart_count > initialRestartCount + 3) {
+                    clearInterval(poll);
+                    document.getElementById('restart-spinner').innerHTML = '<div style="font-size: 2.5rem;">❌</div>';
+                    document.getElementById('restart-title').textContent = 'Erro na Configuração';
+                    document.getElementById('restart-title').style.color = '#ef4444';
+                    msg.textContent = 'OpenClaw está em crash loop. Verifique a API key e tente novamente.';
+                    btn.disabled = false;
+                    btn.innerHTML = '💾 Salvar Configuração e Reiniciar Agente';
+                    return;
+                }
+
+                // Container is running after we saw it restarting = success
+                if (sd.running && sawRestarting) {
                     clearInterval(poll);
                     document.getElementById('restart-spinner').innerHTML = '<div style="font-size: 2.5rem;">✅</div>';
                     document.getElementById('restart-title').textContent = 'OpenClaw Operacional!';
                     document.getElementById('restart-title').style.color = '#22c55e';
-                    document.getElementById('restart-message').textContent = 'Agente reiniciado com a nova configuração de IA.';
+                    msg.textContent = 'Agente online com a nova configuração. Status: ' + sd.status;
                     document.getElementById('portal-btn').style.opacity = '1';
                     document.getElementById('portal-btn').style.pointerEvents = 'auto';
                     btn.disabled = false;
                 }
-            } catch {}
-            if (attempts > 30) clearInterval(poll);
+
+                // Update live status text
+                if (!sd.running && !sawRestarting) {
+                    msg.textContent = 'Enviando sinal de restart... Status: ' + sd.status;
+                }
+            } catch (e) {
+                document.getElementById('restart-message').textContent = 'Aguardando resposta do servidor...';
+            }
         }, 2000);
     } catch (err) {
         alert('Erro de rede: ' + err.message);
