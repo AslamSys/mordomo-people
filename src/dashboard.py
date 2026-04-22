@@ -35,6 +35,7 @@ def get_session_secret():
 
 app.add_middleware(SessionMiddleware, secret_key=get_session_secret())
 app.mount("/debug-neural", debug_app)
+app.mount("/static", StaticFiles(directory="src/static"), name="static")
 templates = Jinja2Templates(directory="src/templates")
 
 # NATS Global Client
