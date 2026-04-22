@@ -22,6 +22,8 @@ async def ensure_schema(conn: asyncpg.Connection) -> None:
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             name TEXT NOT NULL,
             password_hash TEXT,
+            description TEXT,
+            whatsapp_number TEXT,
             aliases TEXT[] DEFAULT '{}',
             voice_profile_id TEXT,
             face_profile_id TEXT,
@@ -53,8 +55,10 @@ async def ensure_schema(conn: asyncpg.Connection) -> None:
         ON people.pessoas (lower(name));
     """)
     
-    # Ensure password_hash column exists (Migration support)
+    # Ensure all columns exist (Migration support)
     await conn.execute("ALTER TABLE people.pessoas ADD COLUMN IF NOT EXISTS password_hash TEXT;")
+    await conn.execute("ALTER TABLE people.pessoas ADD COLUMN IF NOT EXISTS description TEXT;")
+    await conn.execute("ALTER TABLE people.pessoas ADD COLUMN IF NOT EXISTS whatsapp_number TEXT;")
 
 
 async def init_pool() -> None:
