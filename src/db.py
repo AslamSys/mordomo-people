@@ -11,9 +11,55 @@ from src.crypto import encrypt, decrypt
 _pool: Optional[asyncpg.Pool] = None
 
 
+async def ensure_schema(conn: asyncpg.Connection) -> None:
+    """Creates the 'people' schema and tables if they don't exist."""
+    print("  [DB] Ensuring 'people' schema and tables...")
+    await conn.execute("CREATE SCHEMA IF NOT EXISTS people;")
+    
+    # Tables
+    await conn.execute("""
+        CREATE TABLE IF NOT EXISTS people.pessoas (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            name TEXT NOT NULL,
+            aliases TEXT[] DEFAULT '{}',
+            voice_profile_id TEXT,
+            face_profile_id TEXT,
+            is_owner BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        
+        CREATE TABLE IF NOT EXISTS people.contatos (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            person_id UUID REFERENCES people.pessoas(id) ON DELETE CASCADE,
+            type TEXT NOT NULL,
+            value_enc TEXT NOT NULL,
+            label TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        
+        CREATE TABLE IF NOT EXISTS people.permissoes (
+            person_id UUID REFERENCES people.pessoas(id) ON DELETE CASCADE,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            PRIMARY KEY (person_id, key)
+        );
+    """)
+
+    # UNIQUE INDEX for ON CONFLICT (lower(name))
+    await conn.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_pessoas_name_lower 
+        ON people.pessoas (lower(name));
+    """)
+
+
 async def init_pool() -> None:
     global _pool
     _pool = await asyncpg.create_pool(DATABASE_URL, min_size=2, max_size=10)
+    
+    # Ensure schema on startup
+    async with _pool.acquire() as conn:
+        await ensure_schema(conn)
 
 
 async def close_pool() -> None:
