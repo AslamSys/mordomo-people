@@ -144,6 +144,38 @@ async def index(request: Request, user: dict = Depends(get_current_user)):
         }
     )
 
+@app.post("/add")
+async def add_first_user(request: Request, name: str = Form(...), password: str = Form(...), is_owner: bool = Form(False)):
+    """Handles the first administrator/owner creation."""
+    password_hash = pwd_context.hash(password)
+    
+    async with _pool_conn() as conn:
+        # Check if any admin exists
+        admin_count = await conn.fetchval("SELECT count(*) FROM people.pessoas WHERE is_owner = True")
+        
+        # If it's the first user, always allow owner. If not, only admins could add. 
+        # But here we focus on the setup wizard.
+        try:
+            person_id = await conn.fetchval(
+                """
+                INSERT INTO people.pessoas (name, password_hash, is_owner)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (lower(name)) DO NOTHING
+                RETURNING id
+                """,
+                name, password_hash, is_owner
+            )
+            
+            if person_id:
+                # Auto-login the founder
+                request.session["user"] = {"id": str(person_id), "name": name, "is_owner": is_owner}
+                return RedirectResponse(url="/", status_code=303)
+            else:
+                return RedirectResponse(url="/?error=exists", status_code=303)
+        except Exception as e:
+            logger.error(f"Failed to add founder: {e}")
+            return JSONResponse({"error": str(e)}, status_code=500)
+
 @app.post("/login")
 async def login(request: Request, name: str = Form(...), password: str = Form(...)):
     async with _pool_conn() as conn:
