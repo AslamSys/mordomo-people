@@ -287,53 +287,72 @@ def _read_openclaw_config():
     return {"provider": "", "api_key": "", "model": "", "configured": False}
 
 def _write_openclaw_config(provider: str, api_key: str, model: str):
-    """Write a clean openclaw.json with the selected provider."""
+    """Write or update openclaw.json with the selected provider, preserving other settings."""
     pdata = OPENCLAW_PROVIDERS[provider]
     base_url = pdata["baseUrl"]
-    # Build models catalog for OpenClaw
-    models_entries = []
-    for m in pdata["models"]:
-        models_entries.append(f'          {{ id: "{m}", name: "{m}" }},')
-    models_block = "\n".join(models_entries)
+    
+    current_config = {}
+    try:
+        if os.path.exists(OPENCLAW_CONFIG_PATH):
+            with open(OPENCLAW_CONFIG_PATH, "r") as f:
+                content = f.read()
+                # OpenClaw config might have comments or be JS-like, but we try to parse it as JSON
+                # If it's the complex template we wrote, we might need a more robust parser or just keep it simple
+                import json
+                try:
+                    current_config = json.loads(content)
+                except:
+                    # Fallback: if it's our template, it's not valid JSON. 
+                    # For Zero-Touch, we'll move to a pure JSON structure now.
+                    pass
+    except:
+        pass
 
-    config = f"""// OpenClaw — Mordomo Gateway Config
-// Provider configured via AslamSys People Dashboard
-{{
-  gateway: {{
-    port: 18789,
-    bind: "auto",
-    auth: {{
-      mode: "token",
-      token: "${{OPENCLAW_GATEWAY_TOKEN}}",
-    }},
-    controlUi: {{
-      allowedOrigins: ["*", "http://localhost:18789", "http://127.0.0.1:18789"],
-      allowInsecureAuth: true,
-      dangerouslyDisableDeviceAuth: true,
-    }},
-  }},
+    # Build the models entry
+    models_entry = {
+        "baseUrl": base_url,
+        "apiKey": api_key,
+        "models": [{"id": m, "name": m} for m in pdata["models"]]
+    }
 
-  models: {{
-    providers: {{
-      {provider}: {{
-        baseUrl: "{base_url}",
-        apiKey: "{api_key}",
-        models: [
-{models_block}
-        ],
-      }},
-    }},
-  }},
+    # Update or create the config structure
+    config = {
+        "gateway": current_config.get("gateway", {
+            "port": 18789,
+            "bind": "auto",
+            "auth": {"mode": "token", "token": "${OPENCLAW_GATEWAY_TOKEN}"},
+            "controlUi": {
+                "allowedOrigins": ["*", "http://localhost:18789", "http://127.0.0.1:18789"],
+                "allowInsecureAuth": True,
+                "dangerouslyDisableDeviceAuth": True
+            }
+        }),
+        "models": {
+            "providers": {
+                provider: models_entry
+            }
+        },
+        "agents": {
+            "defaults": {
+                "model": f"{provider}/{model}"
+            }
+        },
+        "plugins": current_config.get("plugins", {"entries": {"google": {"enabled": True}}}),
+        "channels": current_config.get("channels", {
+            "whatsapp": {
+                "enabled": True,
+                "allowFrom": ["+5533997311186", "+5516996344668"]
+            }
+        }),
+        "meta": {
+            "lastTouchedVersion": "2026.4.22",
+            "lastTouchedAt": "2026-04-23T23:00:00Z"
+        }
+    }
 
-  agents: {{
-    defaults: {{
-      model: "{provider}/{model}",
-    }},
-  }},
-}}
-"""
     with open(OPENCLAW_CONFIG_PATH, "w") as f:
-        f.write(config)
+        import json
+        json.dump(config, f, indent=2)
     
     # NEW: Wipe the 'agents' directory to force OpenClaw to recreate the default agent 
     # using the NEW global provider/model settings. This prevents "No API key found for openai" errors.
