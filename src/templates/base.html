@@ -195,6 +195,19 @@
         function closeModal() {
             document.getElementById('aslam-modal').classList.remove('active');
         }
+
+        // Automatic error handling from URL
+        window.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const error = params.get('error');
+            if (error === 'exists') {
+                showModal('Identidade Já Ativa', 'Este Mestre já foi inicializado no núcleo. Por favor, utilize o formulário de login.', '👤');
+            } else if (error === 'invalid') {
+                showModal('Falha na Autenticação', 'Credenciais inválidas ou acesso negado pelo Vault.', '🚫');
+            } else if (error === 'failed') {
+                showModal('Erro do Sistema', 'Não foi possível processar a requisição. Verifique os logs do servidor.', '⚠️');
+            }
+        });
     </script>
 </body>
 </html>
