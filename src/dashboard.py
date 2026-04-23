@@ -261,11 +261,56 @@ async def enroll_voice(request: Request, audio: UploadFile = File(...), user: di
 OPENCLAW_CONFIG_PATH = os.getenv("OPENCLAW_CONFIG_PATH", "/openclaw-data/openclaw.json")
 
 OPENCLAW_PROVIDERS = {
-    "openai":    {"name": "OpenAI",    "baseUrl": "https://api.openai.com/v1",    "models": ["gpt-5", "gpt-5o", "gpt-4.5-preview", "o3-preview", "o3-mini"]},
-    "anthropic": {"name": "Anthropic", "baseUrl": "https://api.anthropic.com",     "models": ["claude-4-sonnet-20260215", "claude-4-opus-20260310", "claude-3.7-sonnet", "claude-3.5-sonnet-v2"]},
-    "groq":      {"name": "Groq",      "baseUrl": "https://api.groq.com/openai/v1", "models": ["llama-3.3-70b-versatile", "meta-llama/llama-4-scout-17b-16e-instruct", "qwen/qwen3-32b", "llama-3.1-8b-instant"]},
-    "google":    {"name": "Google",    "baseUrl": "https://generativelanguage.googleapis.com/v1beta", "models": ["gemini-3.1-pro", "gemini-3.1-flash", "gemini-3.1-flash-lite", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite", "nano-banana-2", "nano-banana-pro"]},
+    "openai":    {"name": "OpenAI",    "baseUrl": "https://api.openai.com/v1"},
+    "anthropic": {"name": "Anthropic", "baseUrl": "https://api.anthropic.com"},
+    "groq":      {"name": "Groq",      "baseUrl": "https://api.groq.com/openai/v1"},
+    "google":    {"name": "Google",    "baseUrl": "https://generativelanguage.googleapis.com/v1beta"},
 }
+
+@app.get("/fetch-models/{provider}")
+async def fetch_provider_models(provider: str, api_key: str = None):
+    """Dynamically fetch models from the provider API."""
+    if provider not in OPENCLAW_PROVIDERS:
+        raise HTTPException(status_code=400, detail="Invalid provider")
+    
+    if not api_key:
+        # Try to get from vault if not provided in request
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(f"{VAULT_URL}/get_all")
+                if resp.status_code == 200:
+                    vdata = resp.json()
+                    if provider == "groq": api_key = vdata.get("GROQ_API_KEY")
+                    elif provider == "openai": api_key = vdata.get("OPENAI_API_KEY")
+                    elif provider == "google": api_key = vdata.get("GOOGLE_API_KEY")
+        except: pass
+
+    if not api_key:
+        return {"models": []}
+
+    try:
+        async with httpx.AsyncClient() as client:
+            if provider == "google":
+                url = f"{OPENCLAW_PROVIDERS[provider]['baseUrl']}/models?key={api_key}"
+                resp = await client.get(url)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    # Filter for generateContent supported models
+                    models = [m["name"].split("/")[-1] for m in data.get("models", []) 
+                             if "generateContent" in m.get("supportedGenerationMethods", [])]
+                    return {"models": sorted(models)}
+            else:
+                # OpenAI / Groq pattern
+                url = f"{OPENCLAW_PROVIDERS[provider]['baseUrl']}/models"
+                resp = await client.get(url, headers={"Authorization": f"Bearer {api_key}"})
+                if resp.status_code == 200:
+                    data = resp.json()
+                    models = [m["id"] for m in data.get("data", [])]
+                    return {"models": sorted(models)}
+    except Exception as e:
+        logger.error(f"Error fetching models for {provider}: {e}")
+    
+    return {"models": []}
 
 def _read_openclaw_config():
     """Read current openclaw config to detect if a provider is already set."""

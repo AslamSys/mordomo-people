@@ -114,25 +114,49 @@ select option { background: #1e293b; color: white; }
 </style>
 
 <script>
-const PROVIDERS = {{ providers | tojson }};
 const currentModel = "{{ current_config.model }}";
 
 function updateModels() {
     const sel = document.getElementById('provider-select');
     const msel = document.getElementById('model-select');
+    const keyInp = document.getElementById('api-key-input');
     const pid = sel.value;
-    msel.innerHTML = '<option value="" disabled selected>Selecione um modelo...</option>';
-    if (pid && PROVIDERS[pid]) {
-        PROVIDERS[pid].models.forEach(m => {
-            const fullModel = pid + '/' + m;
-            const opt = document.createElement('option');
-            opt.value = m;
-            opt.textContent = m;
-            if (currentModel === fullModel) opt.selected = true;
-            msel.appendChild(opt);
+    const key = keyInp.value;
+
+    if (!pid) return;
+
+    msel.innerHTML = '<option value="" disabled selected>⏳ Buscando modelos...</option>';
+    
+    // Fetch models from our new dynamic backend endpoint
+    fetch(`/fetch-models/${pid}?api_key=${encodeURIComponent(key)}`)
+        .then(r => r.json())
+        .then(data => {
+            msel.innerHTML = '<option value="" disabled selected>Selecione um modelo...</option>';
+            if (data.models && data.models.length > 0) {
+                data.models.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m;
+                    opt.textContent = m;
+                    // Auto-select if matches current model (ignoring prefix)
+                    if (currentModel.endsWith('/' + m) || currentModel === m) opt.selected = true;
+                    msel.appendChild(opt);
+                });
+            } else {
+                msel.innerHTML = '<option value="" disabled selected>⚠️ Nenhum modelo encontrado. Verifique a chave.</option>';
+            }
+        })
+        .catch(err => {
+            console.error("Fetch error:", err);
+            msel.innerHTML = '<option value="" disabled selected>❌ Erro ao buscar modelos.</option>';
         });
-    }
 }
+
+// Re-fetch models when API key changes (after a short delay)
+let keyTimeout;
+document.getElementById('api-key-input').addEventListener('input', () => {
+    clearTimeout(keyTimeout);
+    keyTimeout = setTimeout(updateModels, 800);
+});
 
 function toggleKeyVisibility() {
     const inp = document.getElementById('api-key-input');
