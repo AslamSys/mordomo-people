@@ -356,14 +356,15 @@ def _write_openclaw_config(provider: str, api_key: str, model: str):
     
     # 2026 UPDATE: Do NOT wipe agents directory on every save.
     # Wiping agents causes WhatsApp and other persistent sessions to be lost.
-    # Only wipe manually if needed for a full system reset.
     try:
         data_dir = os.path.dirname(OPENCLAW_CONFIG_PATH)
         workspace_path = os.path.join(data_dir, "workspace")
+        agents_path = os.path.join(data_dir, "agents")
+        
+        if not os.path.exists(agents_path):
             logger.info(f"No agents directory to wipe at {agents_path}")
             
         # Clear workspace triggers and modular identity files (2026 pattern)
-        workspace_path = os.path.join(data_dir, "workspace")
         if os.path.exists(workspace_path):
             logger.info(f"Cleaning modular files in workspace: {workspace_path}")
             # List of all files that OpenClaw 2026 generates and uses for identity
