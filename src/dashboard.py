@@ -263,7 +263,7 @@ OPENCLAW_CONFIG_PATH = os.getenv("OPENCLAW_CONFIG_PATH", "/openclaw-data/opencla
 OPENCLAW_PROVIDERS = {
     "openai":    {"name": "OpenAI",    "baseUrl": "https://api.openai.com/v1",    "models": ["gpt-5", "gpt-5o", "gpt-4.5-preview", "o3-preview", "o3-mini"]},
     "anthropic": {"name": "Anthropic", "baseUrl": "https://api.anthropic.com",     "models": ["claude-4-sonnet-20260215", "claude-4-opus-20260310", "claude-3.7-sonnet", "claude-3.5-sonnet-v2"]},
-    "groq":      {"name": "Groq",      "baseUrl": "https://api.groq.com/openai/v1", "models": ["llama-4-70b-versatile", "llama-3.3-70b", "mixtral-large-3", "gemma-3-27b"]},
+    "groq":      {"name": "Groq",      "baseUrl": "https://api.groq.com/openai/v1", "models": ["llama-3.3-70b-versatile", "meta-llama/llama-4-scout-17b-16e-instruct", "qwen/qwen3-32b", "llama-3.1-8b-instant"]},
     "google":    {"name": "Google",    "baseUrl": "https://generativelanguage.googleapis.com/v1beta", "models": ["gemini-3.1-pro", "gemini-3.1-flash", "gemini-3.1-flash-lite", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite", "nano-banana-2", "nano-banana-pro"]},
 }
 
