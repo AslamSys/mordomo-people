@@ -495,4 +495,45 @@ async def save_single_vault_key(
         async with httpx.AsyncClient() as client:
             await client.post(f"{VAULT_URL}/set", json={"key": key_name, "value": key_value})
             
-    return RedirectResponse(url="/#sect-vault", status_code=status.HTTP_303_SEE_OTHER)
+@app.post("/api/command")
+async def api_command(request: Request):
+    """
+    Bridge for OpenClaw/External Agents to talk to the Mordomo Orchestrator.
+    Expects: {"text": "...", "user_id": "...", "channel": "..."}
+    """
+    try:
+        body = await request.json()
+        text = body.get("text")
+        user_id = body.get("user_id", "openclaw_agent")
+        channel = body.get("channel", "openclaw")
+        
+        if not text:
+            return JSONResponse({"error": "text is required"}, status_code=400)
+
+        # Build payload for orchestrator
+        payload = {
+            "text": text,
+            "user_id": user_id,
+            "channel": channel,
+            "session_id": f"api_{secrets.token_hex(4)}"
+        }
+        
+        # Publish to NATS and wait for reply
+        if not nc.is_connected:
+            await nc.connect("nats://nats:4222")
+            
+        logger.info(f"API Bridge: Forwarding command to orchestrator: {text}")
+        response_msg = await nc.request("mordomo.orchestrator.request", json.dumps(payload).encode(), timeout=10.0)
+        
+        result = json.loads(response_msg.data)
+        return JSONResponse(result)
+        
+    except asyncio.TimeoutError:
+        return JSONResponse({"error": "Orchestrator timeout"}, status_code=504)
+    except Exception as e:
+        logger.error(f"API Bridge Error: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
