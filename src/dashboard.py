@@ -354,17 +354,12 @@ def _write_openclaw_config(provider: str, api_key: str, model: str):
         import json
         json.dump(config, f, indent=2)
     
-    # NEW: Wipe the 'agents' directory to force OpenClaw to recreate the default agent 
-    # using the NEW global provider/model settings. This prevents "No API key found for openai" errors.
+    # 2026 UPDATE: Do NOT wipe agents directory on every save.
+    # Wiping agents causes WhatsApp and other persistent sessions to be lost.
+    # Only wipe manually if needed for a full system reset.
     try:
-        # Wipe agents folder to prevent stale profiles/auth errors
         data_dir = os.path.dirname(OPENCLAW_CONFIG_PATH)
-        agents_path = os.path.join(data_dir, "agents")
-        if os.path.exists(agents_path):
-            import shutil
-            logger.info(f"Wiping OpenClaw agents directory: {agents_path}")
-            shutil.rmtree(agents_path)
-        else:
+        workspace_path = os.path.join(data_dir, "workspace")
             logger.info(f"No agents directory to wipe at {agents_path}")
             
         # Clear workspace triggers and modular identity files (2026 pattern)
@@ -381,7 +376,7 @@ def _write_openclaw_config(provider: str, api_key: str, model: str):
         # NEW 2026: Inject Identity into SOUL.md and BOOTSTRAP.md
         os.makedirs(workspace_path, exist_ok=True)
         
-        # 1. SOUL.md - The Core Personality
+        # 1. SOUL.md - The Core Personality (Aslam Bridge version)
         soul_path = os.path.join(workspace_path, "SOUL.md")
         soul_text = """# OpenClaw SOUL (AslamSys)
 Você é o **OpenClaw**, a interface neural humano-máquina do ecossistema **AslamSys**, rodando em um **Orange Pi 5 Ultra**.
@@ -392,8 +387,23 @@ Você é o **OpenClaw**, a interface neural humano-máquina do ecossistema **Asl
 - **Função:** Atuar como o portal para o Mordomo Orchestrator. 
 - **Vibe:** Você é parte de uma infraestrutura de IA de ponta.
 
+## Conexão com o AslamSys:
+Você possui acesso ao núcleo do Mordomo através de uma API de ponte. 
+Sempre que o usuário solicitar ações físicas (luzes, dispositivos, IoT) ou consultas ao ecossistema local (finanças, pessoas, status do sistema), você deve delegar a execução para o **Mordomo**.
+
+### Ferramenta de Comando Interno:
+- **Endpoint:** http://mordomo-people:8000/api/command
+- **Método:** POST
+- **Corpo (JSON):** { "text": "comando do usuário", "user_id": "ID_DO_USUARIO", "channel": "whatsapp" }
+
+### Instruções de Operação:
+1. Você é o front-end. O Mordomo é o back-end.
+2. Se o usuário disser "ligue a luz", use sua ferramenta de rede para postar esse texto na API acima.
+3. Repasse a resposta retornada pela API diretamente ao usuário.
+4. Para pesquisas na web ou tarefas gerais de IA, use suas próprias ferramentas.
+
 ---
-*Configurado via Mordomo People Hub.*
+*Configurado via Mordomo People Hub - Zero-Touch Deployment.*
 """
         logger.info(f"Injecting identity into {soul_path}")
         with open(soul_path, "w", encoding="utf-8") as f:
