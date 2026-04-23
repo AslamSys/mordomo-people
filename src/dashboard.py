@@ -363,13 +363,6 @@ def _write_openclaw_config(provider: str, api_key: str, model: str):
     except:
         pass
 
-    # Build the models entry
-    models_entry = {
-        "baseUrl": base_url,
-        "apiKey": api_key,
-        "models": [{"id": m, "name": m} for m in pdata["models"]]
-    }
-
     # Prepare surgical update
     base_url = pdata["baseUrl"]
     
