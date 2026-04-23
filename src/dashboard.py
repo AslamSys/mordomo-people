@@ -316,17 +316,26 @@ def _write_openclaw_config(provider: str, api_key: str, model: str):
     }
 
     # Update or create the config structure
+    gateway_config = current_config.get("gateway", {
+        "port": 18789,
+        "bind": "auto",
+        "auth": {"mode": "token", "token": "${OPENCLAW_GATEWAY_TOKEN}"},
+        "controlUi": {
+            "allowedOrigins": ["*", "http://localhost:18789", "http://127.0.0.1:18789"],
+            "allowInsecureAuth": True,
+            "dangerouslyDisableDeviceAuth": True
+        }
+    })
+    
+    # Force broad access for 2026 UI reliability
+    if "controlUi" not in gateway_config:
+        gateway_config["controlUi"] = {}
+    gateway_config["controlUi"]["allowedOrigins"] = ["*", "http://localhost:18789", "http://127.0.0.1:18789"]
+    gateway_config["controlUi"]["allowInsecureAuth"] = True
+    gateway_config["controlUi"]["dangerouslyDisableDeviceAuth"] = True
+
     config = {
-        "gateway": current_config.get("gateway", {
-            "port": 18789,
-            "bind": "auto",
-            "auth": {"mode": "token", "token": "${OPENCLAW_GATEWAY_TOKEN}"},
-            "controlUi": {
-                "allowedOrigins": ["*", "http://localhost:18789", "http://127.0.0.1:18789"],
-                "allowInsecureAuth": True,
-                "dangerouslyDisableDeviceAuth": True
-            }
-        }),
+        "gateway": gateway_config,
         "models": {
             "providers": {
                 provider: models_entry
