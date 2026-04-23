@@ -315,53 +315,56 @@ def _write_openclaw_config(provider: str, api_key: str, model: str):
         "models": [{"id": m, "name": m} for m in pdata["models"]]
     }
 
-    # Update or create the config structure
-    gateway_config = current_config.get("gateway", {
-        "port": 18789,
-        "bind": "auto",
-        "auth": {"mode": "token", "token": "${OPENCLAW_GATEWAY_TOKEN}"},
-        "controlUi": {
-            "allowedOrigins": ["*", "http://localhost:18789", "http://127.0.0.1:18789"],
-            "allowInsecureAuth": True,
-            "dangerouslyDisableDeviceAuth": True
-        }
-    })
-    
-    # Force broad access for 2026 UI reliability
-    if "controlUi" not in gateway_config:
-        gateway_config["controlUi"] = {}
-    gateway_config["controlUi"]["allowedOrigins"] = ["*", "http://localhost:18789", "http://127.0.0.1:18789"]
-    gateway_config["controlUi"]["allowInsecureAuth"] = True
-    gateway_config["controlUi"]["dangerouslyDisableDeviceAuth"] = True
-
-    config = {
-        "gateway": gateway_config,
-        "models": {
-            "providers": {
-                provider: models_entry
-            }
-        },
-        "agents": {
-            "defaults": {
-                "model": f"{provider}/{model}"
-            }
-        },
-        "plugins": current_config.get("plugins", {"entries": {"google": {"enabled": True}}}),
-        "channels": current_config.get("channels", {
-            "whatsapp": {
-                "enabled": True,
-                "allowFrom": ["+5533997311186", "+5516996344668"]
-            }
-        }),
-        "meta": {
-            "lastTouchedVersion": "2026.4.22",
-            "lastTouchedAt": "2026-04-23T23:00:00Z"
-        }
+    # Build the models entry
+    models_entry = {
+        "baseUrl": base_url,
+        "apiKey": api_key,
+        "models": [{"id": m, "name": m} for m in pdata["models"]]
     }
 
+    # Deep update logic
+    if "gateway" not in current_config:
+        current_config["gateway"] = {
+            "port": 18789,
+            "bind": "auto",
+            "auth": {"mode": "token", "token": "${OPENCLAW_GATEWAY_TOKEN}"},
+            "controlUi": {}
+        }
+    
+    # Always ensure UI access
+    if "controlUi" not in current_config["gateway"]:
+        current_config["gateway"]["controlUi"] = {}
+    
+    current_config["gateway"]["controlUi"].update({
+        "allowedOrigins": ["*", "http://localhost:18789", "http://127.0.0.1:18789"],
+        "allowInsecureAuth": True,
+        "dangerouslyDisableDeviceAuth": True
+    })
+
+    # Update intelligence settings
+    if "models" not in current_config:
+        current_config["models"] = {"providers": {}}
+    if "providers" not in current_config["models"]:
+        current_config["models"]["providers"] = {}
+        
+    current_config["models"]["providers"][provider] = models_entry
+    
+    if "agents" not in current_config:
+        current_config["agents"] = {"defaults": {}}
+    current_config["agents"]["defaults"]["model"] = f"{provider}/{model}"
+
+    # Metadata
+    if "meta" not in current_config:
+        current_config["meta"] = {}
+    current_config["meta"].update({
+        "lastTouchedVersion": "2026.4.22",
+        "lastTouchedAt": "2026-04-23T23:00:00Z"
+    })
+
+    # Save the merged config
     with open(OPENCLAW_CONFIG_PATH, "w") as f:
         import json
-        json.dump(config, f, indent=2)
+        json.dump(current_config, f, indent=2)
     
     # 2026 UPDATE: Do NOT wipe agents directory on every save.
     # Wiping agents causes WhatsApp and other persistent sessions to be lost.
