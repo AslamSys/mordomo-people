@@ -430,7 +430,7 @@ async def save_vault_keys(
         if groq_key:
             await client.post(f"{VAULT_URL}/set", json={"key": "GROQ_API_KEY", "value": groq_key})
 
-    return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+    return JSONResponse({"status": "ok"})
 
 @app.post("/vault/save_single")
 async def save_single_vault_key(
