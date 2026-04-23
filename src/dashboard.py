@@ -121,7 +121,9 @@ async def index(request: Request, user: dict = Depends(get_current_user)):
     if admin_count == 0:
         return templates.TemplateResponse(request=request, name="welcome.html", context={})
     if not user:
-        login_mode = request.query_params.get("login_mode") == "true"
+        # If admins already exist, default to login mode unless explicitly requested otherwise
+        default_login = admin_count > 0
+        login_mode = request.query_params.get("login_mode", "true" if default_login else "false") == "true"
         return templates.TemplateResponse(request=request, name="welcome.html", context={"login_mode": login_mode})
     
     async with _pool_conn() as conn:
@@ -171,10 +173,11 @@ async def add_first_user(request: Request, name: str = Form(...), password: str 
                 request.session["user"] = {"id": str(person_id), "name": name, "is_owner": is_owner}
                 return RedirectResponse(url="/", status_code=303)
             else:
-                return RedirectResponse(url="/?error=exists", status_code=303)
+                # User already exists, redirect to login
+                return RedirectResponse(url="/?login_mode=true&error=exists", status_code=303)
         except Exception as e:
             logger.error(f"Failed to add founder: {e}")
-            return JSONResponse({"error": str(e)}, status_code=500)
+            return RedirectResponse(url="/?error=failed", status_code=303)
 
 @app.post("/login")
 async def login(request: Request, name: str = Form(...), password: str = Form(...)):
