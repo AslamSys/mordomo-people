@@ -85,7 +85,7 @@
         {% endif %}
 
         <!-- The existing add/update form -->
-        <form id="wizard-form" action="/add" method="POST">
+        <form id="wizard-form" action="/people/update" method="POST">
             {% if target == 'self' %}
             <input type="hidden" name="id" value="{{ user.id }}">
             <input type="hidden" name="name" value="{{ user.name }}">

@@ -205,9 +205,58 @@ async def wizard_page(request: Request, mode: str = "persona", target: str = "se
             "user": user, 
             "mode": mode, 
             "target": target,
-            "vault": await get_vault_health()
+            "vault": await get_vault_health(),
+            "request": request
         }
     )
+
+@app.post("/people/update")
+async def update_person(
+    request: Request,
+    id: str = Form(None),
+    name: str = Form(None),
+    description: str = Form(None),
+    aliases: str = Form(None),
+    whatsapp: str = Form(None),
+    voice_profile_id: str = Form(None),
+    is_owner: bool = Form(False),
+    user: dict = Depends(get_current_user)
+):
+    if not user: return RedirectResponse(url="/", status_code=303)
+    
+    # If target is self, use session ID
+    target_id = id or user["id"]
+    
+    # Only admins can update others
+    if target_id != user["id"] and not user.get("is_owner"):
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    async with _pool_conn() as conn:
+        alias_list = [a.strip() for a in aliases.split(",")] if aliases else []
+        await conn.execute(
+            """
+            UPDATE people.pessoas 
+            SET name = COALESCE($1, name),
+                description = COALESCE($2, description),
+                aliases = $3,
+                whatsapp_number = COALESCE($4, whatsapp_number),
+                voice_profile_id = COALESCE($5, voice_profile_id),
+                is_owner = COALESCE($6, is_owner)
+            WHERE id = $7
+            """,
+            name, description, alias_list, whatsapp, voice_profile_id, is_owner, target_id
+        )
+    
+    return RedirectResponse(url="/", status_code=303)
+
+@app.post("/wizard/voice/enroll")
+async def enroll_voice(request: Request, audio: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    if not user: return JSONResponse({"error": "unauthorized"}, status_code=403)
+    # Placeholder for voice enrollment until audio pipeline is active
+    # For now, return a mock voice_id
+    mock_voice_id = f"voice_{secrets.token_hex(4)}"
+    logger.info(f"Mock voice enrollment for user {user['name']}: {mock_voice_id}")
+    return {"voice_id": mock_voice_id}
 
 OPENCLAW_CONFIG_PATH = os.getenv("OPENCLAW_CONFIG_PATH", "/openclaw-data/openclaw.json")
 
