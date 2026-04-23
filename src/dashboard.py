@@ -196,7 +196,15 @@ async def logout(request: Request):
 @app.get("/wizard", response_class=HTMLResponse)
 async def wizard_page(request: Request, mode: str = "persona", target: str = "self", user: dict = Depends(get_current_user)):
     if not user: return RedirectResponse(url="/")
-    return templates.TemplateResponse(request=request, name="wizard.html", context={"user": user, "mode": mode, "target": target})
+    return templates.TemplateResponse(
+        request=request, name="wizard.html", 
+        context={
+            "user": user, 
+            "mode": mode, 
+            "target": target,
+            "vault": await get_vault_health()
+        }
+    )
 
 OPENCLAW_CONFIG_PATH = os.getenv("OPENCLAW_CONFIG_PATH", "/openclaw-data/openclaw.json")
 
