@@ -74,8 +74,8 @@ async def get_system_status(request: Request):
 
 async def get_vault_health():
     essential_keys = [
-        "GROQ_API_KEY", "BIFROST_API_KEY", "DATABASE_URL", "PEOPLE_MASTER_KEY",
-        "OPENCLAW_GATEWAY_TOKEN"
+        "GROQ_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY",
+        "BIFROST_API_KEY", "DATABASE_URL", "PEOPLE_MASTER_KEY", "OPENCLAW_GATEWAY_TOKEN"
     ]
     health = {key: "missing" for key in essential_keys}
     try:
@@ -96,7 +96,11 @@ async def seed_vault():
         {"key": "PEOPLE_MASTER_KEY", "value": os.environ.get("PEOPLE_MASTER_KEY")},
         {"key": "BIFROST_API_KEY", "value": "bt_" + secrets.token_urlsafe(24)},
         {"key": "SESSION_SECRET", "value": secrets.token_urlsafe(24)},
-        {"key": "OPENCLAW_GATEWAY_TOKEN", "value": os.environ.get("OPENCLAW_GATEWAY_TOKEN")}
+        {"key": "OPENCLAW_GATEWAY_TOKEN", "value": os.environ.get("OPENCLAW_GATEWAY_TOKEN")},
+        {"key": "GROQ_API_KEY", "value": os.environ.get("GROQ_API_KEY", "")},
+        {"key": "OPENAI_API_KEY", "value": os.environ.get("OPENAI_API_KEY", "")},
+        {"key": "ANTHROPIC_API_KEY", "value": os.environ.get("ANTHROPIC_API_KEY", "")},
+        {"key": "GOOGLE_API_KEY", "value": os.environ.get("GOOGLE_API_KEY", "")},
     ]
     existing_keys = {}
     async with httpx.AsyncClient() as client:
@@ -298,6 +302,9 @@ async def fetch_provider_models(provider: str, api_key: str = None):
                     # Filter for generateContent supported models
                     models = [m["name"].split("/")[-1] for m in data.get("models", []) 
                              if "generateContent" in m.get("supportedGenerationMethods", [])]
+                    # Filter out non-LLMs
+                    exclude = ["vision", "embedding", "aqa"]
+                    models = [m for m in models if not any(x in m.lower() for x in exclude)]
                     return {"models": sorted(models)}
             else:
                 # OpenAI / Groq pattern
@@ -306,6 +313,9 @@ async def fetch_provider_models(provider: str, api_key: str = None):
                 if resp.status_code == 200:
                     data = resp.json()
                     models = [m["id"] for m in data.get("data", [])]
+                    # 2026 LLM Filter: Exclude tts, whisper, embed, guard, moderations
+                    exclude = ["whisper", "tts", "embed", "guard", "moderation", "audio", "dall-e"]
+                    models = [m for m in models if not any(x in m.lower() for x in exclude)]
                     return {"models": sorted(models)}
     except Exception as e:
         logger.error(f"Error fetching models for {provider}: {e}")
@@ -360,39 +370,31 @@ def _write_openclaw_config(provider: str, api_key: str, model: str):
         "models": [{"id": m, "name": m} for m in pdata["models"]]
     }
 
-    # Build the models entry
-    models_entry = {
-        "baseUrl": base_url,
-        "apiKey": api_key,
-        "models": [{"id": m, "name": m} for m in pdata["models"]]
-    }
-
-    # Deep update logic
-    if "gateway" not in current_config:
-        current_config["gateway"] = {
-            "port": 18789,
-            "bind": "auto",
-            "auth": {"mode": "token", "token": "${OPENCLAW_GATEWAY_TOKEN}"},
-            "controlUi": {}
-        }
+    # Prepare surgical update
+    base_url = pdata["baseUrl"]
     
-    # Always ensure UI access
-    if "controlUi" not in current_config["gateway"]:
-        current_config["gateway"]["controlUi"] = {}
-    
-    current_config["gateway"]["controlUi"].update({
-        "allowedOrigins": ["*", "http://localhost:18789", "http://127.0.0.1:18789"],
-        "allowInsecureAuth": True,
-        "dangerouslyDisableDeviceAuth": True
-    })
-
-    # Update intelligence settings
+    # Ensure intelligence structure
     if "models" not in current_config:
         current_config["models"] = {"providers": {}}
     if "providers" not in current_config["models"]:
         current_config["models"]["providers"] = {}
         
-    current_config["models"]["providers"][provider] = models_entry
+    # Surgical update of provider config
+    if provider not in current_config["models"]["providers"]:
+        current_config["models"]["providers"][provider] = {}
+    
+    current_config["models"]["providers"][provider].update({
+        "baseUrl": base_url,
+        "apiKey": api_key
+    })
+
+    # Ensure the selected model is at least in the list (OpenClaw UI compatibility)
+    if "models" not in current_config["models"]["providers"][provider]:
+        current_config["models"]["providers"][provider]["models"] = []
+    
+    existing_model_ids = [m["id"] for m in current_config["models"]["providers"][provider]["models"]]
+    if model not in existing_model_ids:
+        current_config["models"]["providers"][provider]["models"].append({"id": model, "name": model})
     
     if "agents" not in current_config:
         current_config["agents"] = {"defaults": {}}

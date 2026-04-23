@@ -1,6 +1,6 @@
 <div class="vault-inventory-wrapper">
     <!-- Header Summary -->
-    <div style="margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end;">
+    <div style="margin-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-end;">
         <div>
             <span style="font-size: 0.7rem; color: var(--primary); font-weight: bold; letter-spacing: 1px;">SISTEMA DE SEGREDOS ASLAM</span>
             <h3 style="margin-top: 5px;">Inventário de Ativos Provisionados</h3>
@@ -11,57 +11,51 @@
         </div>
     </div>
 
-    <!-- Inventory Table -->
-    <div class="glass-card" style="padding: 0; overflow: hidden; border: 1px solid #ffffff08; background: rgba(15, 23, 42, 0.4);">
-        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
-            <thead>
-                <tr style="text-align: left; color: var(--text-dim); background: rgba(255,255,255,0.02); border-bottom: 1px solid #ffffff08;">
-                    <th style="padding: 15px 20px;">CHAVE / IDENTIFICADOR</th>
-                    <th style="padding: 15px 20px;">ESPECIFICAÇÃO DE INFRAESTRUTURA</th>
-                    <th style="padding: 15px 20px; text-align: center;">STATUS</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for key, status in vault.items() %}
-                <tr style="border-bottom: 1px solid #ffffff05; transition: 0.2s; cursor: pointer;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'" onclick="openVaultModal('{{ key }}')">
-                    <td style="padding: 15px 20px;">
-                        <code style="background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 6px; color: {% if key in ['GROQ_API_KEY', 'BIFROST_API_KEY', 'DATABASE_URL'] %}var(--primary-light){% else %}var(--text-bright){% endif %}; font-family: 'JetBrains Mono', 'Courier New', monospace;">
-                            {{ key }}
-                        </code>
-                    </td>
-                    <td style="padding: 15px 20px; color: var(--text-dim);">
-                        {% if key == 'GROQ_API_KEY' %}Neural Orchestration Redundancy (Cloud Brain)
-                        {% elif key == 'BIFROST_API_KEY' %}Gateway Master Pass (Inter-service Auth)
-                        {% elif key == 'DATABASE_URL' %}PostgreSQL Master Connection (Persistence Layer)
-                        {% elif key == 'PEOPLE_MASTER_KEY' %}AES-256 System Encryption Master Key
-                        {% elif key == 'OPENCLAW_GATEWAY_TOKEN' %}OpenClaw Gateway Token (Acesso ao Painel)
-                        {% else %}Configuração de Módulo Injetada{% endif %}
-                    </td>
-                    <td style="padding: 15px 20px; text-align: center;">
-                        {% if status == 'ready' %}
-                        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; color: #22c55e;">
-                            <span style="width: 6px; height: 6px; background: #22c55e; border-radius: 50%; box-shadow: 0 0 8px #22c55e;"></span>
-                            PROVISIONADO
-                        </div>
-                        {% else %}
-                        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; color: #ef4444;">
-                            <span style="width: 6px; height: 6px; background: #ef4444; border-radius: 50%;"></span>
-                            AUSENTE
-                        </div>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- AI Providers Section -->
+    <div style="margin-bottom: 40px;">
+        <h4 style="color: var(--primary-light); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+            <span>🧠</span> NEURAL PROVIDERS (LLM)
+        </h4>
+        <div class="ecosystem-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); display: grid; gap: 20px;">
+            {% for key in ["GROQ_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"] %}
+            <div class="module-card" style="display: flex; justify-content: space-between; align-items: center; padding: 20px; background: rgba(255,255,255,0.02);">
+                <div>
+                    <div style="font-size: 0.9rem; font-weight: bold; color: white; font-family: monospace;">{{ key }}</div>
+                    <div style="font-size: 0.7rem; color: {% if vault[key] == 'ready' %}#22c55e{% else %}#ef4444{% endif %}; margin-top: 5px;">
+                        {% if vault[key] == 'ready' %}● PROVISIONADO{% else %}○ PENDENTE{% endif %}
+                    </div>
+                </div>
+                <button type="button" class="btn btn-outline" style="padding: 8px 15px; font-size: 0.65rem;" onclick="openVaultModal('{{ key }}')">CONFIGURAR</button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- System Keys Section -->
+    <div>
+        <h4 style="color: var(--text-dim); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+            <span>🛠️</span> SYSTEM CORE KEYS
+        </h4>
+        <div class="ecosystem-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); display: grid; gap: 20px;">
+            {% for key in ["BIFROST_API_KEY", "OPENCLAW_GATEWAY_TOKEN", "PEOPLE_MASTER_KEY", "DATABASE_URL"] %}
+            <div class="module-card" style="display: flex; justify-content: space-between; align-items: center; padding: 20px; border-style: dashed; background: rgba(255,255,255,0.01);">
+                <div>
+                    <div style="font-size: 0.8rem; font-family: monospace; color: var(--text-dim);">{{ key }}</div>
+                    <div style="font-size: 0.65rem; color: {% if vault[key] == 'ready' %}#22c55e{% else %}#64748b{% endif %}; margin-top: 5px;">
+                        {% if vault[key] == 'ready' %}PROTEGIDO{% else %}NÃO DEFINIDO{% endif %}
+                    </div>
+                </div>
+                <button type="button" class="btn btn-outline" style="padding: 8px 15px; font-size: 0.65rem;" onclick="openVaultModal('{{ key }}')">EDITAR</button>
+            </div>
+            {% endfor %}
+        </div>
     </div>
 
     <!-- Security Notice -->
-    <div style="margin-top: 30px; padding: 20px; border-radius: 15px; background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.1); display: flex; gap: 15px; align-items: center;">
+    <div style="margin-top: 40px; padding: 20px; border-radius: 15px; background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.1); display: flex; gap: 15px; align-items: center;">
         <div style="font-size: 1.5rem;">🛡️</div>
         <p style="font-size: 0.75rem; color: var(--text-dim); line-height: 1.4;">
             <b>Nota de Segurança:</b> Os valores literais dos segredos nunca são exibidos no dashboard para mitigar riscos de captura de tela. Chaves de infraestrutura são sincronizadas automaticamente com o volume <code>vault-data</code> e criptografadas em repouso.
         </p>
     </div>
-
 </div>
