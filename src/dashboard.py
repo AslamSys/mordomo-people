@@ -531,11 +531,20 @@ async def _get_openclaw_container_status():
 async def openclaw_guide_page(request: Request, user: dict = Depends(get_current_user)):
     if not user: return RedirectResponse(url="/")
     token = "Não Gerado"
+    vault_status = {}
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(f"{VAULT_URL}/get_all", timeout=2.0)
             if resp.status_code == 200:
-                token = resp.json().get("OPENCLAW_GATEWAY_TOKEN", "Não Gerado (Reinicie o Orchestrator)")
+                vdata = resp.json()
+                token = vdata.get("OPENCLAW_GATEWAY_TOKEN", "Não Gerado (Reinicie o Orchestrator)")
+                # Detect which providers have keys
+                vault_status = {
+                    "groq": "GROQ_API_KEY" in vdata and bool(vdata["GROQ_API_KEY"]),
+                    "openai": "OPENAI_API_KEY" in vdata and bool(vdata["OPENAI_API_KEY"]),
+                    "google": "GOOGLE_API_KEY" in vdata and bool(vdata["GOOGLE_API_KEY"]),
+                    "anthropic": "ANTHROPIC_API_KEY" in vdata and bool(vdata["ANTHROPIC_API_KEY"]),
+                }
     except:
         pass
 
@@ -544,6 +553,8 @@ async def openclaw_guide_page(request: Request, user: dict = Depends(get_current
         "token": token,
         "providers": OPENCLAW_PROVIDERS,
         "current_config": config,
+        "vault_status": vault_status,
+        "request": request
     })
 
 @app.post("/openclaw-config")

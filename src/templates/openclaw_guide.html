@@ -23,19 +23,31 @@
                 <form id="openclaw-config-form" onsubmit="return saveConfig(event)">
                     <!-- Provider Selector -->
                     <label style="display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;">Provider</label>
-                    <select name="provider" id="provider-select" onchange="updateModels()" style="width: 100%; background: rgba(0,0,0,0.3); color: white; border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 0.95rem; margin-bottom: 15px; cursor: pointer;">
+                    <select name="provider" id="provider-select" onchange="onProviderChange()" style="width: 100%; background: rgba(0,0,0,0.3); color: white; border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 0.95rem; margin-bottom: 15px; cursor: pointer;">
                         <option value="" disabled {% if not current_config.configured %}selected{% endif %}>Selecione um provedor...</option>
                         {% for pid, pdata in providers.items() %}
                         <option value="{{ pid }}" {% if current_config.provider == pid %}selected{% endif %}>{{ pdata.name }}</option>
                         {% endfor %}
                     </select>
 
-                    <!-- API Key -->
-                    <label style="display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;">API Key</label>
-                    <div style="position: relative; margin-bottom: 15px;">
-                        <input type="password" name="api_key" id="api-key-input" placeholder="sk-..." value="{{ current_config.api_key if current_config.configured else '' }}" required
-                            style="width: 100%; background: rgba(0,0,0,0.3); color: white; border: 1px solid var(--border); border-radius: 8px; padding: 12px; padding-right: 45px; font-size: 0.95rem; font-family: monospace;">
-                        <button type="button" onclick="toggleKeyVisibility()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1.1rem;">👁</button>
+                    <!-- Key Source (Hidden by default, shown if vault key exists) -->
+                    <div id="key-source-container" style="display: none; margin-bottom: 15px;">
+                        <label style="display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">Origem da Chave</label>
+                        <div style="display: flex; gap: 10px;">
+                            <button type="button" id="btn-key-vault" onclick="setKeySource('vault')" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: rgba(255,255,255,0.05); color: white; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">🏦 Usar Vault</button>
+                            <button type="button" id="btn-key-custom" onclick="setKeySource('custom')" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: rgba(255,255,255,0.05); color: white; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">✏️ Customizada</button>
+                        </div>
+                        <input type="hidden" name="key_source" id="key-source-input" value="custom">
+                    </div>
+
+                    <!-- API Key Input -->
+                    <div id="api-key-container">
+                        <label style="display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;">API Key</label>
+                        <div style="position: relative; margin-bottom: 15px;">
+                            <input type="password" name="api_key" id="api-key-input" placeholder="sk-..." value="{{ current_config.api_key if current_config.configured else '' }}"
+                                style="width: 100%; background: rgba(0,0,0,0.3); color: white; border: 1px solid var(--border); border-radius: 8px; padding: 12px; padding-right: 45px; font-size: 0.95rem; font-family: monospace;">
+                            <button type="button" onclick="toggleKeyVisibility()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1.1rem;">👁</button>
+                        </div>
                     </div>
 
                     <!-- Model Selector -->
@@ -111,23 +123,65 @@
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes progress { to { width: 100%; } }
 select option { background: #1e293b; color: white; }
+.btn-toggle-active {
+    background: var(--primary) !important;
+    border-color: var(--primary) !important;
+    font-weight: bold;
+}
 </style>
 
 <script>
 const currentModel = "{{ current_config.model }}";
+const vaultStatus = {{ vault_status|tojson }};
+
+function onProviderChange() {
+    const pid = document.getElementById('provider-select').value;
+    const sourceContainer = document.getElementById('key-source-container');
+    
+    if (vaultStatus[pid]) {
+        sourceContainer.style.display = 'block';
+        setKeySource('vault');
+    } else {
+        sourceContainer.style.display = 'none';
+        setKeySource('custom');
+    }
+}
+
+function setKeySource(source) {
+    const input = document.getElementById('key-source-input');
+    const keyContainer = document.getElementById('api-key-container');
+    const btnVault = document.getElementById('btn-key-vault');
+    const btnCustom = document.getElementById('btn-key-custom');
+    
+    input.value = source;
+    
+    if (source === 'vault') {
+        keyContainer.style.display = 'none';
+        btnVault.classList.add('btn-toggle-active');
+        btnCustom.classList.remove('btn-toggle-active');
+        document.getElementById('api-key-input').value = ""; 
+    } else {
+        keyContainer.style.display = 'block';
+        btnVault.classList.remove('btn-toggle-active');
+        btnCustom.classList.add('btn-toggle-active');
+    }
+    
+    updateModels();
+}
 
 function updateModels() {
     const sel = document.getElementById('provider-select');
     const msel = document.getElementById('model-select');
     const keyInp = document.getElementById('api-key-input');
+    const sourceInp = document.getElementById('key-source-input');
+    
     const pid = sel.value;
-    const key = keyInp.value;
+    const key = sourceInp.value === 'vault' ? '' : keyInp.value;
 
     if (!pid) return;
 
     msel.innerHTML = '<option value="" disabled selected>⏳ Buscando modelos...</option>';
     
-    // Fetch models from our new dynamic backend endpoint
     fetch(`/fetch-models/${pid}?api_key=${encodeURIComponent(key)}`)
         .then(r => r.json())
         .then(data => {
@@ -137,7 +191,6 @@ function updateModels() {
                     const opt = document.createElement('option');
                     opt.value = m;
                     opt.textContent = m;
-                    // Auto-select if matches current model (ignoring prefix)
                     if (currentModel.endsWith('/' + m) || currentModel === m) opt.selected = true;
                     msel.appendChild(opt);
                 });
@@ -151,7 +204,6 @@ function updateModels() {
         });
 }
 
-// Re-fetch models when API key changes (after a short delay)
 let keyTimeout;
 document.getElementById('api-key-input').addEventListener('input', () => {
     clearTimeout(keyTimeout);
@@ -178,11 +230,9 @@ async function saveConfig(e) {
 
         if (!resp.ok) { alert(data.error || 'Erro ao salvar'); btn.disabled = false; btn.innerHTML = '💾 Salvar Configuração e Reiniciar Agente'; return; }
 
-        // Show restart overlay
         overlay.style.display = 'block';
         btn.innerHTML = '✓ Configuração Salva';
 
-        // Poll for real container status using timestamp transition
         let initialStartedAt = null;
         let initialRestartCount = null;
         let sawTransition = false;
@@ -194,7 +244,6 @@ async function saveConfig(e) {
                 const sr = await fetch('/openclaw-status');
                 const sd = await sr.json();
                 const msg = document.getElementById('restart-message');
-                console.log("OpenClaw Status:", sd);
 
                 if (initialStartedAt === null) {
                     initialStartedAt = sd.started_at;
@@ -209,15 +258,11 @@ async function saveConfig(e) {
                     msg.textContent = 'Container em transição... Status: ' + sd.status + ' (' + pollCount + ')';
                 }
 
-                // Security Timeout: After 30s (15 polls), always allow retry/access
                 if (pollCount > 15) {
-                    console.warn("Polling timeout reached. Unlocking UI.");
-                    sawTransition = true; // Force transition for UI feedback
+                    sawTransition = true; 
                 }
 
-                // SUCCESS: Running and timestamp is NEW OR timeout reached
                 if (sd.running && (sd.started_at !== initialStartedAt || pollCount > 15)) {
-                    console.log("Release condition met. Clearing poll.");
                     clearInterval(poll);
                     document.getElementById('restart-spinner').innerHTML = '<div style="font-size: 2.5rem;">✅</div>';
                     document.getElementById('restart-title').textContent = 'OpenClaw Operacional!';
@@ -241,7 +286,8 @@ async function saveConfig(e) {
     return false;
 }
 
-// Pre-populate models on page load if provider is selected
-document.addEventListener('DOMContentLoaded', updateModels);
+document.addEventListener('DOMContentLoaded', () => {
+    onProviderChange();
+});
 </script>
 {% endblock %}
