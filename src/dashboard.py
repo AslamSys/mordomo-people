@@ -577,16 +577,13 @@ async def save_openclaw_config(
     request: Request,
     provider: str = Form(None),
     model: str = Form(None),
-    api_key_source: str = Form(None),
-    custom_api_key: str = Form(None),
+    key_source: str = Form(None),
+    api_key: str = Form(None),
     user: dict = Depends(get_current_user)
 ):
-    # Log everything to catch the 422 culprit
-    form_data = await request.form()
-    logger.info(f"DEBUG: POST /openclaw-config received: {dict(form_data)}")
+    if not provider or not model or not key_source:
+        return JSONResponse({"error": "Campos obrigatórios ausentes: provider, model ou key_source."}, status_code=400)
     
-    if not provider or not model or not api_key_source:
-        return JSONResponse({"error": "Campos obrigatórios ausentes no formulário."}, status_code=400)
     if not user or not user.get("is_owner"):
         return JSONResponse({"error": "unauthorized"}, status_code=403)
     if provider not in OPENCLAW_PROVIDERS:
@@ -594,8 +591,8 @@ async def save_openclaw_config(
 
     # Resolve actual API key based on source
     final_api_key = ""
-    if api_key_source == "custom":
-        final_api_key = custom_api_key
+    if key_source == "custom":
+        final_api_key = api_key
     else:
         # Get from vault
         try:
