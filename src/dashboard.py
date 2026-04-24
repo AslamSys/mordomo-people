@@ -281,12 +281,9 @@ async def fetch_provider_models(provider: str, api_key: str = None):
     """Dynamically fetch models from the provider API with caching."""
     global MODELS_CACHE
     
-    # Create a unique cache key based on provider and API key (shortened)
-    cache_key = f"{provider}:{api_key[:10] if api_key else 'vault'}"
-    
-    # Reduced cache TTL to 5 minutes for better responsiveness in 2026
-    CACHE_TTL_SHORT = 300 
+    # Check cache first
     now = time.time()
+    CACHE_TTL_SHORT = 300 
     if cache_key in MODELS_CACHE and MODELS_CACHE[cache_key]["expiry"] > now:
         return {"models": MODELS_CACHE[cache_key]["models"], "source": "cache"}
 
@@ -294,7 +291,7 @@ async def fetch_provider_models(provider: str, api_key: str = None):
         raise HTTPException(status_code=400, detail="Invalid provider")
     
     if not api_key or api_key.startswith("AQ."):
-        # Try to get from vault if not provided or if it's the masked UI placeholder
+        # Try to get from vault
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.get(f"{VAULT_URL}/get_all", timeout=2.0)
@@ -307,17 +304,8 @@ async def fetch_provider_models(provider: str, api_key: str = None):
         except Exception as e:
             logger.warning(f"Vault lookup failed for {provider}: {e}")
 
-    # Fallback models (2026 Updated)
-    fallbacks = {
-        "groq": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"],
-        "openai": ["gpt-4o", "gpt-4o-mini", "o1-preview", "gpt-5-preview"],
-        "google": ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-1.5-pro"],
-        "anthropic": ["claude-3-5-sonnet-latest", "claude-4-preview"]
-    }
-
-    # If we STILL don't have a real key, return fallbacks immediately
     if not api_key or api_key.startswith("AQ."):
-        return {"models": fallbacks.get(provider, []), "source": "fallback"}
+        return {"models": [], "source": "error", "message": "No API key found in Vault or request."}
 
     try:
         async with httpx.AsyncClient() as client:
@@ -327,9 +315,10 @@ async def fetch_provider_models(provider: str, api_key: str = None):
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     data = resp.json()
-                    # Google 2026 logic: name is models/xyz
                     models_found = [m["name"].split("/")[-1] for m in data.get("models", []) 
                                    if "generateContent" in m.get("supportedGenerationMethods", [])]
+                else:
+                    logger.error(f"Google API Error {resp.status_code}: {resp.text}")
             else:
                 # OpenAI / Groq / Anthropic pattern
                 url = f"{OPENCLAW_PROVIDERS[provider]['baseUrl']}/models"
@@ -337,25 +326,23 @@ async def fetch_provider_models(provider: str, api_key: str = None):
                 if resp.status_code == 200:
                     data = resp.json()
                     models_found = [m["id"] for m in data.get("data", []) or data.get("models", [])]
+                else:
+                    logger.error(f"API Error {resp.status_code} for {provider}: {resp.text}")
             
             if models_found:
-                # 2026 Refined LLM Filter: Only block clearly non-chat/agentic tools
-                # We want to keep 'flash', 'pro', 'ultra', 'it' (instruction tuned), 'preview'
+                # 2026 Refined LLM Filter
                 exclude = ["embedding", "aqa", "whisper", "tts", "embed", "guard", "moderation", "audio", "dall-e", "imagen", "veo"]
                 filtered = [m for m in models_found if not any(x in m.lower() for x in exclude)]
-                
-                logger.info(f"Fetched {len(models_found)} models for {provider}, {len(filtered)} passed filter.")
                 
                 # Update cache
                 MODELS_CACHE[cache_key] = {"models": sorted(filtered), "expiry": time.time() + CACHE_TTL_SHORT}
                 return {"models": sorted(filtered), "source": "api"}
             
-            # If API call succeeded but no models found or status != 200, return fallbacks
-            return {"models": fallbacks.get(provider, []), "source": "fallback_on_api_error"}
+            return {"models": [], "source": "error", "message": f"API returned no models for {provider}."}
 
     except Exception as e:
         logger.error(f"Error fetching models for {provider}: {e}")
-        return {"models": fallbacks.get(provider, []), "source": "fallback_on_exception"}
+        return {"models": [], "source": "error", "message": str(e)}
 
 def _read_openclaw_config():
     """Read current openclaw config to detect if a provider is already set."""
