@@ -576,8 +576,9 @@ async def openclaw_guide_page(request: Request, user: dict = Depends(get_current
 async def save_openclaw_config(
     request: Request,
     provider: str = Form(...),
-    api_key: str = Form(...),
     model: str = Form(...),
+    api_key_source: str = Form(...),
+    custom_api_key: str = Form(None),
     user: dict = Depends(get_current_user)
 ):
     if not user or not user.get("is_owner"):
@@ -585,7 +586,28 @@ async def save_openclaw_config(
     if provider not in OPENCLAW_PROVIDERS:
         return JSONResponse({"error": "invalid provider"}, status_code=400)
 
-    _write_openclaw_config(provider, api_key, model)
+    # Resolve actual API key based on source
+    final_api_key = ""
+    if api_key_source == "custom":
+        final_api_key = custom_api_key
+    else:
+        # Get from vault
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(f"{VAULT_URL}/get_all", timeout=2.0)
+                if resp.status_code == 200:
+                    vdata = resp.json()
+                    if provider == "groq": final_api_key = vdata.get("GROQ_API_KEY")
+                    elif provider == "openai": final_api_key = vdata.get("OPENAI_API_KEY")
+                    elif provider == "google": final_api_key = vdata.get("GOOGLE_API_KEY")
+                    elif provider == "anthropic": final_api_key = vdata.get("ANTHROPIC_API_KEY")
+        except Exception as e:
+            logger.error(f"Vault lookup failed during save: {e}")
+
+    if not final_api_key:
+        return JSONResponse({"error": "Nenhuma chave de API encontrada para salvar."}, status_code=400)
+
+    _write_openclaw_config(provider, final_api_key, model)
 
     # Restart the container in background
     asyncio.create_task(_restart_openclaw_container())
