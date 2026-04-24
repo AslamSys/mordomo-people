@@ -291,55 +291,65 @@ async def fetch_provider_models(provider: str, api_key: str = None):
     if provider not in OPENCLAW_PROVIDERS:
         raise HTTPException(status_code=400, detail="Invalid provider")
     
-    if not api_key:
-        # Try to get from vault if not provided in request
+    if not api_key or api_key.startswith("AQ."):
+        # Try to get from vault if not provided or if it's the masked UI placeholder
         try:
             async with httpx.AsyncClient() as client:
-                resp = await client.get(f"{VAULT_URL}/get_all")
+                resp = await client.get(f"{VAULT_URL}/get_all", timeout=2.0)
                 if resp.status_code == 200:
                     vdata = resp.json()
                     if provider == "groq": api_key = vdata.get("GROQ_API_KEY")
                     elif provider == "openai": api_key = vdata.get("OPENAI_API_KEY")
                     elif provider == "google": api_key = vdata.get("GOOGLE_API_KEY")
-        except: pass
+                    elif provider == "anthropic": api_key = vdata.get("ANTHROPIC_API_KEY")
+        except Exception as e:
+            logger.warning(f"Vault lookup failed for {provider}: {e}")
 
-    if not api_key:
-        return {"models": []}
+    # Fallback models to show if no key is available or API fails
+    fallbacks = {
+        "groq": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"],
+        "openai": ["gpt-4o", "gpt-4o-mini", "o1-preview"],
+        "google": ["gemini-1.5-pro", "gemini-1.5-flash"],
+        "anthropic": ["claude-3-5-sonnet-latest", "claude-3-opus-latest"]
+    }
+
+    # If we STILL don't have a real key, return fallbacks immediately
+    if not api_key or api_key.startswith("AQ."):
+        return {"models": fallbacks.get(provider, []), "source": "fallback"}
 
     try:
         async with httpx.AsyncClient() as client:
+            models_found = []
             if provider == "google":
                 url = f"{OPENCLAW_PROVIDERS[provider]['baseUrl']}/models?key={api_key}"
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     data = resp.json()
-                    # Filter out non-LLMs
-                    exclude = ["vision", "embedding", "aqa"]
-                    models = [m for m in models if not any(x in m.lower() for x in exclude)]
-                    
-                    # Update cache
-                    MODELS_CACHE[cache_key] = {"models": sorted(models), "expiry": time.time() + CACHE_TTL}
-                    
-                    return {"models": sorted(models)}
+                    models_found = [m["name"].split("/")[-1] for m in data.get("models", []) 
+                                   if "generateContent" in m.get("supportedGenerationMethods", [])]
             else:
                 # OpenAI / Groq pattern
                 url = f"{OPENCLAW_PROVIDERS[provider]['baseUrl']}/models"
                 resp = await client.get(url, headers={"Authorization": f"Bearer {api_key}"})
                 if resp.status_code == 200:
                     data = resp.json()
-                    models = [m["id"] for m in data.get("data", [])]
-                    # 2026 LLM Filter: Exclude tts, whisper, embed, guard, moderations
-                    exclude = ["whisper", "tts", "embed", "guard", "moderation", "audio", "dall-e"]
-                    models = [m for m in models if not any(x in m.lower() for x in exclude)]
-                    
-                    # Update cache
-                    MODELS_CACHE[cache_key] = {"models": sorted(models), "expiry": time.time() + CACHE_TTL}
-                        
-                    return {"models": sorted(models)}
+                    models_found = [m["id"] for m in data.get("data", [])]
+            
+            if models_found:
+                # 2026 LLM Filter
+                exclude = ["vision", "embedding", "aqa", "whisper", "tts", "embed", "guard", "moderation", "audio", "dall-e"]
+                filtered = [m for m in models_found if not any(x in m.lower() for x in exclude)]
+                
+                # Update cache
+                MODELS_CACHE[cache_key] = {"models": sorted(filtered), "expiry": time.time() + CACHE_TTL}
+                return {"models": sorted(filtered), "source": "api"}
+            
+            # If API call succeeded but no models found or status != 200, return fallbacks
+            return {"models": fallbacks.get(provider, []), "source": "fallback_on_api_error"}
+
     except Exception as e:
         logger.error(f"Error fetching models for {provider}: {e}")
-    
-    return {"models": []}
+        return {"models": fallbacks.get(provider, []), "source": "fallback_on_exception"}
 
 def _read_openclaw_config():
     """Read current openclaw config to detect if a provider is already set."""
@@ -579,19 +589,18 @@ async def save_vault_keys(
 
     return JSONResponse({"status": "ok"})
 
-@app.post("/vault/save_single")
-async def save_single_vault_key(
-    request: Request,
-    key_name: str = Form(...),
-    key_value: str = Form(...),
-    user: dict = Depends(get_current_user)
-):
-    if not user or not user.get("is_owner"):
-        return JSONResponse({"error": "unauthorized"}, status_code=status.HTTP_403_FORBIDDEN)
-    
     if key_name and key_value:
-        async with httpx.AsyncClient() as client:
-            await client.post(f"{VAULT_URL}/set", json={"key": key_name, "value": key_value})
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(f"{VAULT_URL}/set", json={"key": key_name, "value": key_value}, timeout=5.0)
+                if resp.status_code == 200:
+                    return JSONResponse({"status": "ok"})
+                else:
+                    return JSONResponse({"status": "error", "message": f"Vault returned {resp.status_code}"}, status_code=500)
+        except Exception as e:
+            logger.error(f"Vault save error: {e}")
+            return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+    return JSONResponse({"status": "error", "message": "Missing key or value"}, status_code=400)
             
 @app.post("/api/command")
 async def api_command(request: Request):
