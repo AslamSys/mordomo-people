@@ -317,11 +317,9 @@ async def fetch_provider_models(provider: str, api_key: str = None):
                 if resp.status_code == 200:
                     data = resp.json()
                     raw_models = data.get("models", [])
-                    for m in raw_models:
-                        name = m.get("name", "").split("/")[-1]
-                        methods = m.get("supportedGenerationMethods", [])
-                        if "generateContent" in methods or name.startswith(("gemini", "gemma")):
-                            models_found.append(name)
+                    logger.info(f"Google API returned {len(raw_models)} raw models.")
+                    # Take everything, no filters!
+                    models_found = [m.get("name", "").split("/")[-1] for m in raw_models]
                 else:
                     logger.error(f"Google API Error {resp.status_code}: {resp.text}")
             elif provider == "anthropic":
