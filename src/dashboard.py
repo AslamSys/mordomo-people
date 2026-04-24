@@ -295,7 +295,7 @@ async def fetch_provider_models(provider: str, api_key: str = None):
         logger.error(f"DEBUG: Invalid provider: {provider}")
         raise HTTPException(status_code=400, detail="Invalid provider")
     
-    if not api_key or api_key.startswith("AQ."):
+    if not api_key:
         logger.info(f"DEBUG: No valid API key provided, checking Vault for {provider}")
         # Try to get from vault
         try:
@@ -311,7 +311,7 @@ async def fetch_provider_models(provider: str, api_key: str = None):
         except Exception as e:
             logger.warning(f"Vault lookup failed for {provider}: {e}")
 
-    if not api_key or api_key.startswith("AQ."):
+    if not api_key:
         logger.warning(f"DEBUG: Termination - No API key found for {provider}")
         return {"models": [], "source": "error", "message": "No API key found in Vault or request."}
 
