@@ -279,6 +279,8 @@ CACHE_TTL = 3600  # 1 hour
 @app.get("/fetch-models/{provider}")
 async def fetch_provider_models(provider: str, api_key: str = None):
     """Dynamically fetch models from the provider API with caching."""
+    logger.info(f"DEBUG: Starting fetch-models for {provider}. Input key length: {len(api_key) if api_key else 0}")
+    
     # Define cache key before checking cache
     cache_key = f"{provider}:{api_key[:10] if api_key else 'vault'}"
     
@@ -286,12 +288,15 @@ async def fetch_provider_models(provider: str, api_key: str = None):
     now = time.time()
     CACHE_TTL_SHORT = 300 
     if cache_key in MODELS_CACHE and MODELS_CACHE[cache_key]["expiry"] > now:
+        logger.info(f"DEBUG: Cache hit for {provider} ({cache_key})")
         return {"models": MODELS_CACHE[cache_key]["models"], "source": "cache"}
 
     if provider not in OPENCLAW_PROVIDERS:
+        logger.error(f"DEBUG: Invalid provider: {provider}")
         raise HTTPException(status_code=400, detail="Invalid provider")
     
     if not api_key or api_key.startswith("AQ."):
+        logger.info(f"DEBUG: No valid API key provided, checking Vault for {provider}")
         # Try to get from vault
         try:
             async with httpx.AsyncClient() as client:
@@ -302,10 +307,12 @@ async def fetch_provider_models(provider: str, api_key: str = None):
                     elif provider == "openai": api_key = vdata.get("OPENAI_API_KEY")
                     elif provider == "google": api_key = vdata.get("GOOGLE_API_KEY")
                     elif provider == "anthropic": api_key = vdata.get("ANTHROPIC_API_KEY")
+                    logger.info(f"DEBUG: Vault key found for {provider}: {bool(api_key)}")
         except Exception as e:
             logger.warning(f"Vault lookup failed for {provider}: {e}")
 
     if not api_key or api_key.startswith("AQ."):
+        logger.warning(f"DEBUG: Termination - No API key found for {provider}")
         return {"models": [], "source": "error", "message": "No API key found in Vault or request."}
 
     try:
