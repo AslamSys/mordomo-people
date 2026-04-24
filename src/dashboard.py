@@ -279,7 +279,8 @@ CACHE_TTL = 3600  # 1 hour
 @app.get("/fetch-models/{provider}")
 async def fetch_provider_models(provider: str, api_key: str = None):
     """Dynamically fetch models from the provider API with caching."""
-    global MODELS_CACHE
+    # Define cache key before checking cache
+    cache_key = f"{provider}:{api_key[:10] if api_key else 'vault'}"
     
     # Check cache first
     now = time.time()
