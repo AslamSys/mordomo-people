@@ -319,8 +319,20 @@ async def fetch_provider_models(provider: str, api_key: str = None):
                                    if "generateContent" in m.get("supportedGenerationMethods", [])]
                 else:
                     logger.error(f"Google API Error {resp.status_code}: {resp.text}")
+            elif provider == "anthropic":
+                url = f"{OPENCLAW_PROVIDERS[provider]['baseUrl']}/models"
+                headers = {
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01"
+                }
+                resp = await client.get(url, headers=headers)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    models_found = [m["id"] for m in data.get("data", [])]
+                else:
+                    logger.error(f"Anthropic API Error {resp.status_code}: {resp.text}")
             else:
-                # OpenAI / Groq / Anthropic pattern
+                # OpenAI / Groq pattern
                 url = f"{OPENCLAW_PROVIDERS[provider]['baseUrl']}/models"
                 resp = await client.get(url, headers={"Authorization": f"Bearer {api_key}"})
                 if resp.status_code == 200:
