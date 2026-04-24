@@ -575,12 +575,18 @@ async def openclaw_guide_page(request: Request, user: dict = Depends(get_current
 @app.post("/openclaw-config")
 async def save_openclaw_config(
     request: Request,
-    provider: str = Form(...),
-    model: str = Form(...),
-    api_key_source: str = Form(...),
+    provider: str = Form(None),
+    model: str = Form(None),
+    api_key_source: str = Form(None),
     custom_api_key: str = Form(None),
     user: dict = Depends(get_current_user)
 ):
+    # Log everything to catch the 422 culprit
+    form_data = await request.form()
+    logger.info(f"DEBUG: POST /openclaw-config received: {dict(form_data)}")
+    
+    if not provider or not model or not api_key_source:
+        return JSONResponse({"error": "Campos obrigatórios ausentes no formulário."}, status_code=400)
     if not user or not user.get("is_owner"):
         return JSONResponse({"error": "unauthorized"}, status_code=403)
     if provider not in OPENCLAW_PROVIDERS:
