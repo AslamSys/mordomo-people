@@ -271,9 +271,22 @@ OPENCLAW_PROVIDERS = {
     "google":    {"name": "Google",    "baseUrl": "https://generativelanguage.googleapis.com/v1beta"},
 }
 
+# Simple in-memory cache for models {provider: {"models": [...], "expiry": timestamp}}
+MODELS_CACHE = {}
+CACHE_TTL = 3600  # 1 hour
+
 @app.get("/fetch-models/{provider}")
 async def fetch_provider_models(provider: str, api_key: str = None):
-    """Dynamically fetch models from the provider API."""
+    """Dynamically fetch models from the provider API with caching."""
+    global MODELS_CACHE
+    
+    # Create a unique cache key based on provider and API key (shortened)
+    cache_key = f"{provider}:{api_key[:10] if api_key else 'vault'}"
+    
+    now = time.time()
+    if cache_key in MODELS_CACHE and MODELS_CACHE[cache_key]["expiry"] > now:
+        return {"models": MODELS_CACHE[cache_key]["models"]}
+
     if provider not in OPENCLAW_PROVIDERS:
         raise HTTPException(status_code=400, detail="Invalid provider")
     
@@ -299,12 +312,13 @@ async def fetch_provider_models(provider: str, api_key: str = None):
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     data = resp.json()
-                    # Filter for generateContent supported models
-                    models = [m["name"].split("/")[-1] for m in data.get("models", []) 
-                             if "generateContent" in m.get("supportedGenerationMethods", [])]
                     # Filter out non-LLMs
                     exclude = ["vision", "embedding", "aqa"]
                     models = [m for m in models if not any(x in m.lower() for x in exclude)]
+                    
+                    # Update cache
+                    MODELS_CACHE[cache_key] = {"models": sorted(models), "expiry": time.time() + CACHE_TTL}
+                    
                     return {"models": sorted(models)}
             else:
                 # OpenAI / Groq pattern
@@ -316,6 +330,10 @@ async def fetch_provider_models(provider: str, api_key: str = None):
                     # 2026 LLM Filter: Exclude tts, whisper, embed, guard, moderations
                     exclude = ["whisper", "tts", "embed", "guard", "moderation", "audio", "dall-e"]
                     models = [m for m in models if not any(x in m.lower() for x in exclude)]
+                    
+                    # Update cache
+                    MODELS_CACHE[cache_key] = {"models": sorted(models), "expiry": time.time() + CACHE_TTL}
+                        
                     return {"models": sorted(models)}
     except Exception as e:
         logger.error(f"Error fetching models for {provider}: {e}")
@@ -432,31 +450,28 @@ def _write_openclaw_config(provider: str, api_key: str, model: str):
         # 1. SOUL.md - The Core Personality (Aslam Bridge version)
         soul_path = os.path.join(workspace_path, "SOUL.md")
         soul_text = """# OpenClaw SOUL (AslamSys)
-Você é o **OpenClaw**, a interface neural humano-máquina do ecossistema **AslamSys**, rodando em um **Orange Pi 5 Ultra**.
+Você é a interface neural do ecossistema **AslamSys**.
 
-## Personalidade:
-- **Idioma:** Português do Brasil (sempre).
-- **Tom:** Executivo, sofisticado e preciso.
-- **Função:** Atuar como o portal para o Mordomo Orchestrator. 
-- **Vibe:** Você é parte de uma infraestrutura de IA de ponta.
+## Diretrizes de Resposta (ECONOMIA DE TOKENS):
+- **Concisedness:** Responda de forma direta e curta. Elimine saudações automáticas e frases de cortesia desnecessárias.
+- **No Fluff:** Não repita a pergunta do usuário. Apenas execute e confirme o resultado.
+- **Foco Funcional:** Sua prioridade é a ação. Use o tom executivo e preciso.
 
 ## Conexão com o AslamSys:
-Você possui acesso ao núcleo do Mordomo através de uma API de ponte. 
-Sempre que o usuário solicitar ações físicas (luzes, dispositivos, IoT) ou consultas ao ecossistema local (finanças, pessoas, status do sistema), você deve delegar a execução para o **Mordomo**.
+Você é o portal para o **Mordomo Orchestrator**. 
+Ações físicas (luzes, IoT) ou consultas locais (finanças, sistema) devem ser delegadas ao Mordomo.
 
-### Ferramenta de Comando Interno:
-- **Endpoint:** http://mordomo-people:8000/api/command
-- **Método:** POST
-- **Corpo (JSON):** { "text": "comando do usuário", "user_id": "ID_DO_USUARIO", "channel": "whatsapp" }
+### Ferramenta de Comando:
+- **Endpoint:** http://mordomo-people:8000/api/command (POST)
+- **Body:** { "text": "comando", "user_id": "...", "channel": "whatsapp" }
 
-### Instruções de Operação:
-1. Você é o front-end. O Mordomo é o back-end.
-2. Se o usuário disser "ligue a luz", use sua ferramenta de rede para postar esse texto na API acima.
-3. Repasse a resposta retornada pela API diretamente ao usuário.
-4. Para pesquisas na web ou tarefas gerais de IA, use suas próprias ferramentas.
+### Regras de Operação:
+1. Você é o front-end; o Mordomo é o executor.
+2. Repasse a resposta da API do Mordomo de forma resumida.
+3. Use ferramentas de IA/Web apenas se o Mordomo não puder resolver localmente.
 
 ---
-*Configurado via Mordomo People Hub - Zero-Touch Deployment.*
+*Configurado via People Hub - Otimizado para Baixa Latência.*
 """
         logger.info(f"Injecting identity into {soul_path}")
         with open(soul_path, "w", encoding="utf-8") as f:
