@@ -267,7 +267,7 @@ OPENCLAW_CONFIG_PATH = os.getenv("OPENCLAW_CONFIG_PATH", "/openclaw-data/opencla
 
 OPENCLAW_PROVIDERS = {
     "openai":    {"name": "OpenAI",    "baseUrl": "https://api.openai.com/v1"},
-    "anthropic": {"name": "Anthropic", "baseUrl": "https://api.anthropic.com"},
+    "anthropic": {"name": "Anthropic", "baseUrl": "https://api.anthropic.com/v1"},
     "groq":      {"name": "Groq",      "baseUrl": "https://api.groq.com/openai/v1"},
     "google":    {"name": "Google",    "baseUrl": "https://generativelanguage.googleapis.com/v1beta"},
 }
@@ -316,8 +316,12 @@ async def fetch_provider_models(provider: str, api_key: str = None):
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     data = resp.json()
-                    models_found = [m["name"].split("/")[-1] for m in data.get("models", []) 
-                                   if "generateContent" in m.get("supportedGenerationMethods", [])]
+                    raw_models = data.get("models", [])
+                    for m in raw_models:
+                        name = m.get("name", "").split("/")[-1]
+                        methods = m.get("supportedGenerationMethods", [])
+                        if "generateContent" in methods or name.startswith(("gemini", "gemma")):
+                            models_found.append(name)
                 else:
                     logger.error(f"Google API Error {resp.status_code}: {resp.text}")
             elif provider == "anthropic":
